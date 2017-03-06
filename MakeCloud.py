@@ -23,8 +23,6 @@ Options:
 """
 
 import numpy as np
-import matplotlib
-from matplotlib import pyplot as plt
 from scipy import fftpack, interpolate, ndimage
 from scipy.integrate import quad, odeint, solve_bvp
 import sys
