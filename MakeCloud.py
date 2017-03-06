@@ -51,7 +51,7 @@ if filename==None:
     filename = filename.replace("+","").replace('e0','e')
 
 def TurbVelField(coords, res):
-    vt = np.load("/home/mgrudic/turb/vturb%d_n%d.npy"%(minmode,turb_index))
+    vt = np.load("turb/vturb%d_n%d.npy"%(minmode,turb_index))
     x = np.linspace(-R,R,vt.shape[0])
     v = []
     for i in xrange(3):
@@ -59,7 +59,7 @@ def TurbVelField(coords, res):
     return np.array(v).T
 
 def TurbBField(coords, res):
-    vt = np.load("/home/mgrudic/turb/bturb%d_n%d.npy"%(minmode, turb_index))
+    vt = np.load("bturb%d_n%d.npy"%(minmode, turb_index))
     x = np.linspace(-R,R,vt.shape[0])
     v = []
     for i in xrange(3):
@@ -73,7 +73,7 @@ if poisson:
     np.random.seed(seed)
     x = 2*(np.random.rand(2*N_gas, 3)-0.5)
 else:
-    x = 2*(np.load("/home/mgrudic/scripts/MakeCloud/glass_orig.npy")-0.5)
+    x = 2*(np.load("glass_orig.npy")-0.5)
 Nx = len(x)
 r = np.sum(x**2, axis=1)**0.5
 x = x[r.argsort()][:N_gas]
