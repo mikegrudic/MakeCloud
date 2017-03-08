@@ -1,11 +1,10 @@
 #!/usr/bin/env python
-"""                                                                                                                                                                                     
-MakeCloud: "Believe me, we've got some very turbulent clouds, the best clouds. You're gonna love it."
+"""                                                                            
+MakeCloud: "Believe me, we've got some very turbulent clouds, the best clouds. You're gonna love it.
 
-Usage:                                                                                                                                                                                  
-MakeCloud.py [options]
+Usage: MakeCloud.py [options]
 
-Options:                                                                                                                                                                                
+Options:                                                                       
    -h --help         Show this screen.
    --R=<pc>          Outer radius of the cloud in pc [default: 1000.0]
    --Rmin=<pc>       Inner radius in pc if applicable [default: 0.0]
@@ -47,11 +46,13 @@ filename = arguments["--filename"]
 res_effective = int(N_gas**(1.0/3.0)+0.5)
 
 if filename==None:
-    filename = "M%g_"%(1e10*M_gas) + ("MBH%g_"%(1e10*M_BH) if M_BH>0 else "") + "R%3.2g_S%g_T%g_B%g_Res%d"%(R*1e3,S,turbulence,magnetic_field,res_effective) + ".hdf5"
+    filename = "M%g_"%(1e10*M_gas) + ("MBH%g_"%(1e10*M_BH) if M_BH>0 else "") + "R%g_S%g_T%g_B%g_Res%d"%(R*1e3,S,turbulence,magnetic_field,res_effective) + ".hdf5"
     filename = filename.replace("+","").replace('e0','e')
 
+turb_path = "/home/mgrudic/scripts/MakeCloud/turb"
+    
 def TurbVelField(coords, res):
-    vt = np.load("turb/vturb%d_n%d.npy"%(minmode,turb_index))
+    vt = np.load(turb_path+ "/vturb%d_n%d.npy"%(minmode,turb_index))
     x = np.linspace(-R,R,vt.shape[0])
     v = []
     for i in xrange(3):
@@ -59,7 +60,7 @@ def TurbVelField(coords, res):
     return np.array(v).T
 
 def TurbBField(coords, res):
-    vt = np.load("bturb%d_n%d.npy"%(minmode, turb_index))
+    vt = np.load(turb_path + "/bturb%d_n%d.npy"%(minmode, turb_index))
     x = np.linspace(-R,R,vt.shape[0])
     v = []
     for i in xrange(3):
@@ -73,7 +74,7 @@ if poisson:
     np.random.seed(seed)
     x = 2*(np.random.rand(2*N_gas, 3)-0.5)
 else:
-    x = 2*(np.load("glass_orig.npy")-0.5)
+    x = 2*(np.load("/home/mgrudic/glass_orig.npy")-0.5)
 Nx = len(x)
 r = np.sum(x**2, axis=1)**0.5
 x = x[r.argsort()][:N_gas]
@@ -105,23 +106,23 @@ mgas = np.repeat(M_gas/N_gas, N_gas)
 
 Mr = M_BH + mgas.cumsum()
 
-omega = S*(G*Mr/r**3)**0.5
+omega = (G*Mr/r**3)**0.5
 v_K = omega * r
 
-v = np.cross(np.c_[np.zeros_like(omega),np.zeros_like(omega),omega], x)
+v = S*np.cross(np.c_[np.zeros_like(omega),np.zeros_like(omega),omega], x)
 
 ugrav = G * np.sum(Mr/ r * mgas)
 
 print ugrav,  (G*M_gas**2/R * 3/5)
 if turbulence>0.0:
     vturb = TurbVelField(x, res=res_effective)
-    vturb = (vturb.T * v_K).T
+    vturb = (vturb.T * omega).T
     mvturbSqr = 0.5*M_gas/N_gas*np.sum(vturb*vturb)
     v += vturb*np.sqrt(turbulence*ugrav/mvturbSqr)
 
 if magnetic_field>0.0:
     B = TurbBField(x, res=res_effective)
-    B = (B.T * v_K).T
+    B = (B.T * omega).T
     uB = np.sum(np.sum(B*B, axis=1) * 4*np.pi*R**3/3 /N_gas * 3.09e21**3)* 0.03979 *5.03e-54
     B = B * np.sqrt(magnetic_field*ugrav/uB)
 
