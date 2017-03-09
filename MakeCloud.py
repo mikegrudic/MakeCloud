@@ -94,7 +94,7 @@ rnew = odeint(lambda rphys, r3: np.exp(r3)/(4*np.pi*np.exp(rphys)**3*rho(np.exp(
 rnew = np.exp(rnew)
 
 x=(x.T * rnew/r).T
-
+r = np.sum(x**2, axis=1)**0.5
 #just some useful unit vectors...
 #r2 = np.sum(x[:,:2]**2,axis=1)**0.5
 #r = np.sum(x**2, axis=1)**0.5
@@ -107,13 +107,14 @@ mgas = np.repeat(M_gas/N_gas, N_gas)
 Mr = M_BH + mgas.cumsum()
 
 omega = (G*Mr/r**3)**0.5
+
 v_K = omega * r
+
 
 v = S*np.cross(np.c_[np.zeros_like(omega),np.zeros_like(omega),omega], x)
 
 ugrav = G * np.sum(Mr/ r * mgas)
 
-print ugrav,  (G*M_gas**2/R * 3/5)
 if turbulence>0.0:
     vturb = TurbVelField(x, res=res_effective)
     vturb = (vturb.T * omega).T
