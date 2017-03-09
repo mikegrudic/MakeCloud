@@ -5,20 +5,22 @@ MakeCloud: "Believe me, we've got some very turbulent clouds, the best clouds. Y
 Usage: MakeCloud.py [options]
 
 Options:                                                                       
-   -h --help         Show this screen.
-   --R=<pc>          Outer radius of the cloud in pc [default: 1000.0]
-   --Rmin=<pc>       Inner radius in pc if applicable [default: 0.0]
-   --M=<msun>        Mass of the cloud in msun [default: 1e10]
-   --filename=<name> Name of the IC file to be generated
-   --N=<N>           Number of gas particles [default: 125000]
-   --MBH=<msun>      Mass of the central black hole [default: 0.0]
-   --S=<f>           Spin of the cloud, as a fraction of its Keplerian velocity sqrt(G M(<r) / r) [default: 1.0]
-   --turb=<f>        Turbulent energy as a fraction of the Keplerian kinetic energy at a given radius [default: 0.1]
-   --bturb=<f>       Magnetic energy as a fraction of the Keplerian kinetic energy at a given radius [default: 0.01]
-   --minmode=<N>     Minimum populated turbulent mode [default: 4]
-   --turb_index=<N>  Power-law index of turbulent spectrum [default: 2]
-   --poisson         Use random particle positions instead of a gravitational glass
-   --seed=<N>        Random seed for generating particle positions, if --poisson is used [default: 42]
+   -h --help            Show this screen.
+   --R=<pc>             Outer radius of the cloud in pc [default: 1000.0]
+   --Rmin=<pc>          Inner radius in pc if applicable [default: 0.0]
+   --M=<msun>           Mass of the cloud in msun [default: 1e10]
+   --filename=<name>    Name of the IC file to be generated
+   --N=<N>              Number of gas particles [default: 125000]
+   --MBH=<msun>         Mass of the central black hole [default: 0.0]
+   --S=<f>              Spin of the cloud, as a fraction of its Keplerian velocity sqrt(G M(<r) / r) [default: 1.0]
+   --turb=<f>           Turbulent energy as a fraction of the Keplerian kinetic energy at a given radius [default: 0.1]
+   --bturb=<f>          Magnetic energy as a fraction of the Keplerian kinetic energy at a given radius [default: 0.01]
+   --minmode=<N>        Minimum populated turbulent mode [default: 4]
+   --turb_index=<N>     Power-law index of turbulent spectrum [default: 2]
+   --poisson            Use random particle positions instead of a gravitational glass
+   --seed=<N>           Random seed for generating particle positions, if --poisson is used [default: 42]
+   --turb_path=<name>   Contains the root path of the turb [default: /home/mgrudic/scripts/MakeCloud/turb]
+   --glass_path=<name>  Contains the root path of the glass ic [default: /home/mgrudic/glass_orig.npy]
 """
 
 import numpy as np
@@ -42,15 +44,14 @@ seed = int(float(arguments["--seed"])+0.5)
 turb_index = float(arguments["--turb_index"])
 minmode = int(arguments["--minmode"])
 filename = arguments["--filename"]
-
+turb_path = arguments["--turb_path"]
+glass_path = arguments["--glass_path"]
 res_effective = int(N_gas**(1.0/3.0)+0.5)
 
 if filename==None:
     filename = "M%g_"%(1e10*M_gas) + ("MBH%g_"%(1e10*M_BH) if M_BH>0 else "") + "R%g_S%g_T%g_B%g_Res%d"%(R*1e3,S,turbulence,magnetic_field,res_effective) + ".hdf5"
     filename = filename.replace("+","").replace('e0','e')
 
-turb_path = "/home/mgrudic/scripts/MakeCloud/turb"
-    
 def TurbVelField(coords, res):
     vt = np.load(turb_path+ "/vturb%d_n%d.npy"%(minmode,turb_index))
     x = np.linspace(-R,R,vt.shape[0])
@@ -74,7 +75,7 @@ if poisson:
     np.random.seed(seed)
     x = 2*(np.random.rand(2*N_gas, 3)-0.5)
 else:
-    x = 2*(np.load("/home/mgrudic/glass_orig.npy")-0.5)
+    x = 2*(np.load(glass_path)-0.5)
 Nx = len(x)
 r = np.sum(x**2, axis=1)**0.5
 x = x[r.argsort()][:N_gas]
