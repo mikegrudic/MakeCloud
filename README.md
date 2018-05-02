@@ -13,3 +13,7 @@ By default, we generate turbulent velocity fields on the fly but then store that
 #Usage
 
 Run python MakeCloud.py -h for instructions
+
+e.g. if I wanted a 10^6 solar mass cloud of radius 100pc, with purely compressive turbulence, resolved in 10^6 particles, I would do
+
+python MakeCloud.py --M=1e6 --R=100 --N=1000000 --turb_sol=0.
