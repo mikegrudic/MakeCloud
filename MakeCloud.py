@@ -11,7 +11,7 @@ Options:
    --filename=<name>    Name of the IC file to be generated
    --N=<N>              Number of gas particles [default: 125000]
    --MBH=<msun>         Mass of the central black hole [default: 0.0]
-   --S=<f>              Rotational energy as a fraction of binding energy [default: 0.0]
+   --S=<f>              Rotational frequency as a fraction of Keplerian [default: 0.0]
    --turb_type=<s>      Type of initial turbulent velocity (and possibly density field): 'gaussian' or 'full' [default: gaussian]
    --turb_sol=<f>       Fraction of turbulence in solenoidal modes, used when turb_type is 'gaussian' [default: 1.0]
    --turb_seed=<N>      Random seed for gaussian random field turbulence [default: 42]
