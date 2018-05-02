@@ -18,8 +18,8 @@ Options:
    --alpha_turb=<f>     Turbulent energy as a fraction of the binding energy [default: 1.]
    --bturb=<f>          Magnetic energy as a fraction of the binding energy [default: 0.01]
    --minmode=<N>        Minimum populated turbulent wavenumber for Gaussian initial velocity field, in units of pi/R [default: 2]
-   --turb_path=<name>   Path to store turbulent velocity fields so that we only need to generate them once [default: /home/mike/turb]
-   --glass_path=<name>  Contains the root path of the glass ic [default: /home/mike/code/MakeCloud/glass_orig.npy]
+   --turb_path=<name>   Path to store turbulent velocity fields so that we only need to generate them once [default: /home/mgrudic/turb]
+   --glass_path=<name>  Contains the root path of the glass ic [default: /home/mgrudic/glass_orig.npy]
    --G=<f>              Gravitational constant in code units [default: 4.301e4]
    --warmgas=<f>        Add warm ISM envelope in pressure equilibrium with a Gaussian density profile and total mass equal to this fraction of the nominal mass [default: 0.0]
 """
@@ -38,7 +38,7 @@ from docopt import docopt
 
 def TurbField(res=256, minmode=2, maxmode = 64, sol_weight=1., seed=42):
     freqs = fftpack.fftfreq(res)
-    freq3d = np.array(np.meshgrid(freqs,freqs,freqs))
+    freq3d = np.array(np.meshgrid(freqs,freqs,freqs,indexing='ij'))
     intfreq = np.around(freq3d*res)
     kSqr = np.sum(np.abs(freq3d)**2,axis=0)
     intkSqr = np.sum(np.abs(intfreq)**2, axis=0)
@@ -146,7 +146,9 @@ else:
         if not os.path.exists(turb_path): os.makedirs(turb_path)
         fname = turb_path + "/vturb%d_sol%g_seed%d.npy"%(minmode,turb_sol, turb_seed)
         if not os.path.isfile(fname):
-            vt = TurbField(minmode=minmode, sol_weight=turb_sol, seed=turb_seed)[:,64:192, 64:192, 64:192] # we take the central cube of size L/2 so that opposide sides of the cloud are not correlated
+            vt = TurbField(minmode=minmode, sol_weight=turb_sol, seed=turb_seed)
+            nmin, nmax = vt.shape[-1]/4, 3*vt.shape[-1]/4
+            vt = vt[:,nmin:nmax, nmin:nmax, nmin:nmax]  # we take the central cube of size L/2 so that opposide sides of the cloud are not correlated
             np.save(fname, vt)
         else:
             vt = np.load(fname)
