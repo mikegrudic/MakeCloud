@@ -147,7 +147,9 @@ else:
         fname = turb_path + "/vturb%d_sol%g_seed%d.npy"%(minmode,turb_sol, turb_seed)
         if not os.path.isfile(fname):
             vt = TurbField(minmode=minmode, sol_weight=turb_sol, seed=turb_seed)
-            nmin, nmax = vt.shape[-1]/4, 3*vt.shape[-1]/4
+
+            nmin, nmax = vt.shape[-1]// 4, 3*vt.shape[-1]//4
+
             vt = vt[:,nmin:nmax, nmin:nmax, nmin:nmax]  # we take the central cube of size L/2 so that opposide sides of the cloud are not correlated
             np.save(fname, vt)
         else:
