@@ -19,7 +19,7 @@ Options:
    --bturb=<f>          Magnetic energy as a fraction of the binding energy [default: 0.01]
    --minmode=<N>        Minimum populated turbulent wavenumber for Gaussian initial velocity field, in units of pi/R [default: 2]
    --turb_path=<name>   Path to store turbulent velocity fields so that we only need to generate them once [default: /home/mgrudic/turb]
-   --glass_path=<name>  Contains the root path of the glass ic [default: /home/mgrudic/glass_orig.npy]
+   --glass_path=<name>  Contains the root path of the glass ic [default: /home/mgrudic/glass_256.npy]
    --G=<f>              Gravitational constant in code units [default: 4.301e4]
    --warmgas=<f>        Add warm ISM envelope in pressure equilibrium with a Gaussian density profile and total mass equal to this fraction of the nominal mass [default: 0.0]
 """
