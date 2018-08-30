@@ -1,33 +1,30 @@
 #!/usr/bin/env python
 """                                                                            
-MakeCloud: "Believe me, we've got some very turbulent clouds, the best clouds. You're gonna love it.
+MakeCloud: "Believe me, we've got some very turbulent clouds, the best clouds. You're gonna love it."
 
 Usage: MakeCloud.py [options]
 
 Options:                                                                       
    -h --help            Show this screen.
-   --R=<pc>             Outer radius of the cloud in pc [default: 100.0]
-   --Rmin=<pc>          Inner radius in pc if applicable [default: 0.0]
-   --M=<msun>           Mass of the cloud in msun [default: 1e6]
+   --R=<pc>             Outer radius of the cloud in pc [default: 20.0]
+   --M=<msun>           Mass of the cloud in msun [default: 1e5]
    --filename=<name>    Name of the IC file to be generated
    --N=<N>              Number of gas particles [default: 125000]
    --MBH=<msun>         Mass of the central black hole [default: 0.0]
-   --S=<f>              Rotational energy as a fraction of binding energy [default: 0.0]
-   --turb_type=<s>      Type of initial turbulent velocity (and possibly density field): grid, meshless, solenoidal or full [default: gaussian]
-   --turb_seed=<N>      Which pre-generated random turbulent field to use [default: 1]
+   --S=<f>              Rotational frequency as a fraction of Keplerian [default: 0.0]
+   --turb_type=<s>      Type of initial turbulent velocity (and possibly density field): 'gaussian' or 'full' [default: gaussian]
+   --turb_sol=<f>       Fraction of turbulence in solenoidal modes, used when turb_type is 'gaussian' [default: 1.0]
+   --turb_seed=<N>      Random seed for gaussian random field turbulence [default: 42]
    --alpha_turb=<f>     Turbulent energy as a fraction of the binding energy [default: 1.]
    --bturb=<f>          Magnetic energy as a fraction of the binding energy [default: 0.01]
-   --minmode=<N>        Minimum populated turbulent mode for Gaussian initial velocity field [default: 2]
-   --turb_index=<N>     Power-law index of turbulent spectrum for Gaussian random initial velocity [default: 2]
-   --turb_meshless      Use new method for generating ~k^-2 velocity power spectrum without a grid (SLOW)
-   --poisson            Use random particle positions instead of a gravitational glass
-   --poisson_seed=<N>   Random seed for generating particle positions, if --poisson is used [default: 42]
-   --turb_path=<name>   Contains the root path of the turb [default: /panfs/ds08/hopkins/mgrudic/turb]
-   --glass_path=<name>  Contains the root path of the glass ic [default: /home/mgrudic/glass_orig.npy]
-   --G=<f>              Gravitational constant in code units [default: 4.3e4]
-   --warmgas=<f>        Add warm ISM envelope with total mass equal to this fraction of the nominal mass [default: 0.0]
+   --minmode=<N>        Minimum populated turbulent wavenumber for Gaussian initial velocity field, in units of pi/R [default: 2]
+   --turb_path=<name>   Path to store turbulent velocity fields so that we only need to generate them once [default: /home/mgrudic/turb]
+   --glass_path=<name>  Contains the root path of the glass ic [default: /home/mgrudic/glass_256.npy]
+   --G=<f>              Gravitational constant in code units [default: 4.301e4]
+   --warmgas=<f>        Add warm ISM envelope in pressure equilibrium with a Gaussian density profile and total mass equal to this fraction of the nominal mass [default: 0.0]
+   --phimode=<f>        Relative amplitude of m=2 density perturbation (e.g. for Boss-Bodenheimer test) [default: 0.0]
 """
-
+import meshoid
 import numpy as np
 from scipy import fftpack, interpolate, ndimage
 from scipy.integrate import quad, odeint, solve_bvp
@@ -36,13 +33,46 @@ from scipy.spatial.distance import cdist
 from scipy.optimize import minimize
 import sys
 import h5py
-from numba import jit, prange
+import os
 from docopt import docopt
 from pykdgrav import Potential
 
+def TurbField(res=256, minmode=2, maxmode = 64, sol_weight=1., seed=42):
+    freqs = fftpack.fftfreq(res)
+    freq3d = np.array(np.meshgrid(freqs,freqs,freqs,indexing='ij'))
+    intfreq = np.around(freq3d*res)
+    kSqr = np.sum(np.abs(freq3d)**2,axis=0)
+    intkSqr = np.sum(np.abs(intfreq)**2, axis=0)
+    VK = []
+
+    vSqr = 0.0
+    # apply ~k^-2 exp(-k^2/kmax^2) filter to white noise to get x, y, and z components of velocity field
+    for i in range(3):
+        np.random.seed(seed+i)
+        rand_phase = fftpack.fftn(np.random.normal(size=kSqr.shape)) # fourier transform of white noise
+        vk = rand_phase * (float(minmode)/res)**2 / kSqr
+        vk[intkSqr < minmode**2] = 0.0     # freeze out modes lower than minmode                                                                                               
+        vk *= np.exp(-intkSqr/maxmode**2)
+        VK.append(vk)
+    VK = np.array(VK)
+    
+    vk_new = np.zeros_like(VK)
+    
+    # do projection operator to get the correct mix of compressive and solenoidal
+    for i in range(3):
+        for j in range(3):
+            if i==j:
+                vk_new[i] += sol_weight * VK[j]
+            vk_new[i] += (1 - 2 * sol_weight) * freq3d[i]*freq3d[j]/kSqr * VK[j]
+    vk_new[:,kSqr==0] = 0.0
+    VK = vk_new
+    
+    vel = np.array([fftpack.ifftn(vk).real for vk in VK]) # transform back to real space
+    vel = vel / np.sqrt(np.sum(vel**2,axis=0).mean()) # normalize so that RMS is 1
+    return np.array(vel)
+
 arguments = docopt(__doc__)
 R = float(arguments["--R"])/1e3
-rmin = float(arguments["--Rmin"])/1e3
 M_gas = float(arguments["--M"])/1e10
 N_gas = int(float(arguments["--N"])+0.5)
 M_BH = float(arguments["--MBH"])/1e10
@@ -50,12 +80,8 @@ spin = float(arguments["--S"])
 turbulence = float(arguments["--alpha_turb"])
 turb_type = arguments["--turb_type"]
 turb_seed = int(float(arguments["--turb_seed"])+0.5)
+turb_sol = float(arguments["--turb_sol"])
 magnetic_field = float(arguments["--bturb"])
-poisson = arguments["--poisson"]
-turb_meshless = arguments["--turb_meshless"]
-#scturb = arguments["--scturb"]
-seed = int(float(arguments["--poisson_seed"])+0.5)
-turb_index = float(arguments["--turb_index"])
 minmode = int(arguments["--minmode"])
 filename = arguments["--filename"]
 turb_path = arguments["--turb_path"]
@@ -63,31 +89,37 @@ glass_path = arguments["--glass_path"]
 G = float(arguments["--G"])
 warmgas = float(arguments["--warmgas"])
 res_effective = int(N_gas**(1.0/3.0)+0.5)
+phimode=float(arguments["--phimode"])
 
 if filename==None:
-    filename = "M%g_"%(1e10*M_gas) + ("MBH%g_"%(1e10*M_BH) if M_BH>0 else "") + "R%g_S%g_T%g_B%g_Res%d_n%d"%(R*1e3,spin,turbulence,magnetic_field,res_effective,minmode) +  ("_%d"%turb_seed) + ".hdf5"
+    filename = "M%3.2g_"%(1e10*M_gas) + ("MBH%g_"%(1e10*M_BH) if M_BH>0 else "") + "R%g_S%g_T%g_B%g_Res%d_n%d_sol%g"%(R*1e3,spin,turbulence,magnetic_field,res_effective,minmode,turb_sol) +  ("_%d"%turb_seed) + ".hdf5"
     filename = filename.replace("+","").replace('e0','e')
 
 mgas = np.repeat(M_gas/N_gas, N_gas)
 
 if turb_type=='full':
-#    ft = h5py.File("/panfs/ds08/hopkins/mgrudic/turb/supersonic/snapshot_%s_c.hdf5"%(str(turb_seed).zfill(3)))
-    ft = h5py.File("/panfs/ds08/hopkins/mgrudic/turb/nomhd/snapshot_002_c.hdf5")
+    ft = h5py.File("/panfs/ds08/hopkins/mgrudic/turb/supersonic256/snapshot_%s_c.hdf5"%(str(turb_seed).zfill(3)))
+#    ft = h5py.File("/panfs/ds08/hopkins/mgrudic/turb/nomhd/snapshot_002_c.hdf5")
     x = np.float64(np.array(ft["PartType0"]["Coordinates"]))-0.5
+    Ns = len(x)
     r = np.sum(x**2,axis=1)**0.5
     if "MagneticField" in ft["PartType0"].keys():
         B = np.float64(np.array(ft["PartType0"]["MagneticField"]))[r<0.5]
     else:
         B = 0*x
-#    theta = 2*np.pi*x
-#    circular_mean = np.angle(np.average(np.exp(1j*theta),axis=0))%(2*np.pi)
+
     v = np.float64(np.array(ft["PartType0"]["Velocities"]))[r<0.5]
     h = np.float64(np.array(ft["PartType0"]["SmoothingLength"]))[r<0.5]
     m = np.float64(np.array(ft["PartType0"]["Masses"]))[r<0.5]
     x = x[r<0.5]
     xchoice = np.random.choice(np.arange(len(x)),size=N_gas,replace=False)
+#    h *= (float(Ns)/N_gas)**(1./3)
+#    plasma_beta = (0.5*np.sum(m*np.sum(v**2,axis=1)))/np.sum(np.sum(B**2,axis=1)*(4*np.pi/3*h**3/32)/(8*np.pi))
+    uB = np.sum(np.sum(B*B, axis=1) * 4*np.pi/3 *h**3 /32 * 3.09e21**3)* 0.03979 *5.03e-54
+    plasma_beta = 0.5*np.sum(m*np.sum(v**2,axis=1))/uB
+    print(plasma_beta)
     x, v, B, h, m = x[xchoice], v[xchoice], B[xchoice], h[xchoice], m[xchoice]
-    plasma_beta = (0.5*np.sum(m*np.sum(v**2,axis=1)))/np.sum(np.sum(B**2,axis=1)*(4*np.pi/3*h**3/32)/(8*np.pi))
+    
     x = x*2*R
     h = h*2*R
     #B /= (0.5/(2*R))**1.5
@@ -107,6 +139,7 @@ else:
     x, r = x/r.max(), r/r.max()
     
     rho_form = lambda r: 1. #change this function to get a different radial density profile; normalization does not matter as long as rmin and rmax are properly specified
+    rmin = 0.
     rho_norm = quad(lambda r: rho_form(r) * 4 * np.pi * r**2, rmin, R)[0]
     rho = lambda r: rho_form(r) / rho_norm
 
@@ -117,22 +150,33 @@ else:
     x, r = x[r.argsort()], r[r.argsort()]
     
     if turb_type=='gaussian':
-        vt = np.load(turb_path + "/gaussian/vturb%d_n%d.npy"%(minmode,turb_index))
-        xgrid = np.linspace(-R,R,vt.shape[0])
-        v = []
-        for i in xrange(3):
-            v.append(interpolate.interpn((xgrid,xgrid,xgrid),vt[:,:,:,i],x))
-        v = np.array(v).T
-    elif turb_type=='solenoidal':
-        ft = h5py.File("/panfs/ds08/hopkins/mgrudic/turb/subsonic/snapshot_004.hdf5")#turb_seed)
-        xt = 2*R*(np.array(ft["PartType0"]["Coordinates"])-.5)
-        vt = np.array(ft["PartType0"]["Velocities"])
-        print "getting subsonic turbulent field"
-        v = vt[cKDTree(xt).query(x)[1]]
+#        if turb_path is not 'none': # this is for saving turbulent fields we have already generated
+        if not os.path.exists(turb_path): os.makedirs(turb_path)
+        fname = turb_path + "/vturb%d_sol%g_seed%d.npy"%(minmode,turb_sol, turb_seed)
+        if not os.path.isfile(fname):
+            vt = TurbField(minmode=minmode, sol_weight=turb_sol, seed=turb_seed)
 
+            nmin, nmax = vt.shape[-1]// 4, 3*vt.shape[-1]//4
+
+            vt = vt[:,nmin:nmax, nmin:nmax, nmin:nmax]  # we take the central cube of size L/2 so that opposide sides of the cloud are not correlated
+            np.save(fname, vt)
+        else:
+            vt = np.load(fname)
+        
+        xgrid = np.linspace(-R,R,vt.shape[-1])
+        v = []
+        for i in range(3):
+            v.append(interpolate.interpn((xgrid,xgrid,xgrid),vt[i,:,:,:],x))
+        v = np.array(v).T
+
+#x += np.random.normal(size=(N_gas,3))*R/20
+        
 Mr = M_BH + mgas.cumsum()
 ugrav = G * np.sum(Mr/ r * mgas)
-#print ugrav
+#print(ugrav)
+#phi = Potential(x, mgas, G=G)
+#ugrav = np.abs(phi*mgas).sum()/2
+#print(ugrav)
 E_rot = spin * ugrav
 I_z = np.sum(mgas * (x[:,0]**2+x[:,1]**2))
 #omega = (2*E_rot/I_z)**0.5
@@ -153,11 +197,27 @@ if magnetic_field>0.0 and turb_type != 'full':
 v = v - np.average(v, axis=0)
 x = x - np.average(x, axis=0)
 #print mgas, x, v, B
+#mgas *= (1 + phimode*np.sin(2*phi))
+r, phi = np.sum(x**2,axis=1)**0.5, np.arctan2(x[:,1],x[:,0])
+theta = np.arccos(x[:,2]/r)
+phi += phimode*np.sin(2*phi)/2
+x = r[:,np.newaxis]*np.c_[np.cos(phi)*np.sin(theta), np.sin(phi)*np.sin(theta), np.cos(theta)]
 
+M = meshoid.meshoid(x,mgas)
+#rho = 32*mgas / (4*np.pi/3 * h**3)
+#print(h)
+rho, h = M.Density(), M.SmoothingLength()
+#print(h)
 if turb_type=='full':
     #print(np.sqrt(turbulence*ugrav/Eturb))
-    beta = (np.sum(mgas*np.sum(v**2,axis=1))*0.5)/(np.sum(np.sum(B**2,axis=1)*(4*np.pi/3*h**3/32))/(8*np.pi))
+    uB = np.sum(np.sum(B*B, axis=1) * 4*np.pi/3 *h**3 /32 * 3.09e21**3)* 0.03979 *5.03e-54
+    beta = np.sum(0.5*mgas*np.sum(v**2,axis=1))/uB #np.sum(np.sum(B**2,axis=1)*h**3) #(np.sum(mgas*np.sum(v**2,axis=1))*0.5)/(np.sum(np.sum(B**2,axis=1)*(4*np.pi/3*h**3/32))/(8*np.pi))
+#    print(beta, plasma_beta)
+    print(np.sqrt(beta/plasma_beta))
     B *= np.sqrt(beta/plasma_beta) #np.sqrt(turbulence*ugrav/Eturb)
+    uB = np.sum(np.sum(B*B, axis=1) * 4*np.pi/3 *h**3 /32 * 3.09e21**3)* 0.03979 *5.03e-54
+#    beta = np.sum(mgas*np.sum(v**2,axis=1))/np.sum(np.sum(B**2,axis=1)*h**3) #(np.sum(mgas*np.sum(v**2,axis=1))*0.5)/(np.sum(np.sum(B**2,axis=1)*(4*np.pi/3*h**3/32))/(8*np.pi))
+#    print(beta/plasma_beta)
 
 if warmgas:
     N_warm = int(warmgas*N_gas+0.5)
@@ -165,19 +225,24 @@ if warmgas:
     print(sigma_warm, R)
     x_warm = np.random.normal(size=(N_warm,3))*sigma_warm
     r_warm = np.sum(x_warm**2,axis=1)**0.5
+    R_warm = np.sum(x_warm[:,:2]**2,axis=1)**0.5
     x = np.concatenate([x, x_warm])
+#    V = meshoid.meshoid(x).vol
     v = np.concatenate([v, np.zeros((N_warm,3))])
     Bmag = np.average(np.sum(B**2,axis=1))**0.5
-    B = np.concatenate([B, Bmag * np.exp(-r_warm**2/(2*sigma_warm**2))[:,np.newaxis] * np.array([0,0,1])])
+    B = np.concatenate([B, Bmag * np.exp(-R_warm**2/(2*sigma_warm**2))[:,np.newaxis] * np.array([0,0,1])])
+#    VB = V[:,np.newaxis] * B
     mgas = np.concatenate([mgas, np.repeat(M_gas/N_gas,N_warm)])
+#    warm_ngb = cKDTree(x).query(x_warm,32)[1]
+#    for i in range(3):
+#        v[N_gas:] = np.average(v[warm_ngb],axis=1)
+#        VB[N_gas:] = np.average(VB[warm_ngb],axis=1)
+#    B = VB/V[:,np.newaxis]
 else:
     N_warm = 0
 
-import meshoid
-#M = meshoid.meshoid(x,mgas)
-#rho = np.repeat( / (4*np.pi*R**3/3) #32*mgas/(4*np.pi*h**3/3)
-#rho, h = M.Density(), M.h
-print "Writing snapshot..."
+#rho = 32*mgas /(4*np.pi/3 * h**3)
+print("Writing snapshot...")
 F=h5py.File(filename, 'w')
 F.create_group("PartType0")
 F.create_group("Header")
@@ -191,8 +256,8 @@ F["PartType0"].create_dataset("Coordinates", data=x)
 F["PartType0"].create_dataset("Velocities", data=v)
 F["PartType0"].create_dataset("ParticleIDs", data=np.arange(N_gas+N_warm)+(1 if M_BH>0 else 0))
 F["PartType0"].create_dataset("InternalEnergy", data=np.ones(N_gas+N_warm))
-#F["PartType0"].create_dataset("Density", data=rho)
-#F["PartType0"].create_dataset("SmoothingLength", data=h)
+F["PartType0"].create_dataset("Density", data=rho)
+F["PartType0"].create_dataset("SmoothingLength", data=h)
 if magnetic_field > 0.0:
     F["PartType0"].create_dataset("MagneticField", data=B)
 if M_BH > 0:
