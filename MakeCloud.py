@@ -23,6 +23,7 @@ Options:
    --G=<f>              Gravitational constant in code units [default: 4.301e4]
    --warmgas=<f>        Add warm ISM envelope in pressure equilibrium with a Gaussian density profile and total mass equal to this fraction of the nominal mass [default: 0.0]
    --phimode=<f>        Relative amplitude of m=2 density perturbation (e.g. for Boss-Bodenheimer test) [default: 0.0]
+
 """
 import meshoid
 import numpy as np
@@ -35,7 +36,41 @@ import sys
 import h5py
 import os
 from docopt import docopt
-from pykdgrav import Potential
+#from pykdgrav import Potential
+
+def TurbField(res=256, minmode=2, maxmode = 64, sol_weight=1., seed=42):
+    freqs = fftpack.fftfreq(res)
+    freq3d = np.array(np.meshgrid(freqs,freqs,freqs,indexing='ij'))
+    intfreq = np.around(freq3d*res)
+    kSqr = np.sum(np.abs(freq3d)**2,axis=0)
+    intkSqr = np.sum(np.abs(intfreq)**2, axis=0)
+    VK = []
+
+    vSqr = 0.0
+    # apply ~k^-2 exp(-k^2/kmax^2) filter to white noise to get x, y, and z components of velocity field
+    for i in range(3):
+        np.random.seed(seed+i)
+        rand_phase = fftpack.fftn(np.random.normal(size=kSqr.shape)) # fourier transform of white noise
+        vk = rand_phase * (float(minmode)/res)**2 / kSqr
+        vk[intkSqr < minmode**2] = 0.0     # freeze out modes lower than minmode                                                                                               
+        vk *= np.exp(-intkSqr/maxmode**2)
+        VK.append(vk)
+    VK = np.array(VK)
+    
+    vk_new = np.zeros_like(VK)
+    
+    # do projection operator to get the correct mix of compressive and solenoidal
+    for i in range(3):
+        for j in range(3):
+            if i==j:
+                vk_new[i] += sol_weight * VK[j]
+            vk_new[i] += (1 - 2 * sol_weight) * freq3d[i]*freq3d[j]/kSqr * VK[j]
+    vk_new[:,kSqr==0] = 0.0
+    VK = vk_new
+    
+    vel = np.array([fftpack.ifftn(vk).real for vk in VK]) # transform back to real space
+    vel = vel / np.sqrt(np.sum(vel**2,axis=0).mean()) # normalize so that RMS is 1
+    return np.array(vel)
 
 def TurbField(res=256, minmode=2, maxmode = 64, sol_weight=1., seed=42):
     freqs = fftpack.fftfreq(res)
@@ -98,7 +133,9 @@ if filename==None:
 mgas = np.repeat(M_gas/N_gas, N_gas)
 
 if turb_type=='full':
+
     ft = h5py.File("/panfs/ds08/hopkins/mgrudic/turb/supersonic256/snapshot_%s_c.hdf5"%(str(turb_seed).zfill(3)))
+
 #    ft = h5py.File("/panfs/ds08/hopkins/mgrudic/turb/nomhd/snapshot_002_c.hdf5")
     x = np.float64(np.array(ft["PartType0"]["Coordinates"]))-0.5
     Ns = len(x)
@@ -241,7 +278,7 @@ if warmgas:
 else:
     N_warm = 0
 
-#rho = 32*mgas /(4*np.pi/3 * h**3)
+
 print("Writing snapshot...")
 F=h5py.File(filename, 'w')
 F.create_group("PartType0")
