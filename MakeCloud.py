@@ -24,7 +24,6 @@ Options:
    --boxsize=<f>        Simulation box size - sets up a sphere in thermal pressure equilibrium with a diffuse box-filling medium.
    --warmgas            Add warm ISM envelope in pressure equilibrium that fills the box with uniform density.
    --phimode=<f>        Relative amplitude of m=2 density perturbation (e.g. for Boss-Bodenheimer test) [default: 0.0]
-
 """
 import meshoid
 import numpy as np
@@ -259,19 +258,21 @@ if turb_type=='full':
     uB = np.sum(np.sum(B*B, axis=1) * 4*np.pi/3 *h**3 /32 * 3.09e21**3)* 0.03979 *5.03e-54
 #    beta = np.sum(mgas*np.sum(v**2,axis=1))/np.sum(np.sum(B**2,axis=1)*h**3) #(np.sum(mgas*np.sum(v**2,axis=1))*0.5)/(np.sum(np.sum(B**2,axis=1)*(4*np.pi/3*h**3/32))/(8*np.pi))
 #    print(beta/plasma_beta)
-
+u = np.ones_like(mgas)*0.101
 if warmgas:
     # assuming 10K vs 10^4K gas: factor of ~10^3 density contrast
     rho_warm = M_gas*3/(4*np.pi*R**3) / 1000
     M_warm = (boxsize**3 - (4*np.pi*R**3 / 3)) * rho_warm # mass of diffuse box-filling medium
     N_warm = int(M_warm/(M_gas/N_gas))
     x_warm = boxsize*np.random.rand(N_warm, 3) - boxsize/2
+    x_warm = x_warm[np.sum(x_warm**2,axis=1) > R**2]
+    N_warm = len(x_warm)
     x = np.concatenate([x, x_warm])
     v = np.concatenate([v, np.zeros((N_warm,3))])
     Bmag = np.average(np.sum(B**2,axis=1))**0.5
     B = np.concatenate([B, np.repeat(Bmag,N_warm)[:,np.newaxis] * np.array([0,0,1])])
     mgas = np.concatenate([mgas, np.repeat(M_gas/N_gas,N_warm)])
-    
+    u = np.concatenate([u, np.repeat(101.,N_warm)])
     # old kludgy way of setting up diffuse medium with uniform B field; probably don't use this
     # N_warm = int(warmgas*N_gas+0.5)
     # sigma_warm = 2*R*10*warmgas**(1./3)
@@ -307,7 +308,7 @@ F["PartType0"].create_dataset("Masses", data=mgas)
 F["PartType0"].create_dataset("Coordinates", data=x)
 F["PartType0"].create_dataset("Velocities", data=v)
 F["PartType0"].create_dataset("ParticleIDs", data=np.arange(N_gas+N_warm)+(1 if M_BH>0 else 0))
-#F["PartType0"].create_dataset("InternalEnergy", data=np.ones(N_gas+N_warm))
+F["PartType0"].create_dataset("InternalEnergy", data=u)
 F["PartType0"].create_dataset("Density", data=rho)
 F["PartType0"].create_dataset("SmoothingLength", data=h)
 if magnetic_field > 0.0:
