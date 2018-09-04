@@ -21,7 +21,8 @@ Options:
    --turb_path=<name>   Path to store turbulent velocity fields so that we only need to generate them once [default: /home/mgrudic/turb]
    --glass_path=<name>  Contains the root path of the glass ic [default: /home/mgrudic/glass_256.npy]
    --G=<f>              Gravitational constant in code units [default: 4.301e4]
-   --warmgas=<f>        Add warm ISM envelope in pressure equilibrium with a Gaussian density profile and total mass equal to this fraction of the nominal mass [default: 0.0]
+   --boxsize=<f>        Simulation box size - sets up a sphere in thermal pressure equilibrium with a diffuse box-filling medium.
+   --warmgas            Add warm ISM envelope in pressure equilibrium that fills the box with uniform density.
    --phimode=<f>        Relative amplitude of m=2 density perturbation (e.g. for Boss-Bodenheimer test) [default: 0.0]
 
 """
@@ -122,7 +123,13 @@ filename = arguments["--filename"]
 turb_path = arguments["--turb_path"]
 glass_path = arguments["--glass_path"]
 G = float(arguments["--G"])
-warmgas = float(arguments["--warmgas"])
+warmgas = arguments["--warmgas"]
+#print(warmgas)
+if arguments["--boxsize"] is not None:
+#    print(arguments["--boxsize"])
+    boxsize = float(arguments["--boxsize"])
+else:
+    boxsize = 10*R
 res_effective = int(N_gas**(1.0/3.0)+0.5)
 phimode=float(arguments["--phimode"])
 
@@ -240,10 +247,7 @@ theta = np.arccos(x[:,2]/r)
 phi += phimode*np.sin(2*phi)/2
 x = r[:,np.newaxis]*np.c_[np.cos(phi)*np.sin(theta), np.sin(phi)*np.sin(theta), np.cos(theta)]
 
-M = meshoid.meshoid(x,mgas)
-#rho = 32*mgas / (4*np.pi/3 * h**3)
-#print(h)
-rho, h = M.Density(), M.SmoothingLength()
+
 #print(h)
 if turb_type=='full':
     #print(np.sqrt(turbulence*ugrav/Eturb))
@@ -257,27 +261,38 @@ if turb_type=='full':
 #    print(beta/plasma_beta)
 
 if warmgas:
-    N_warm = int(warmgas*N_gas+0.5)
-    sigma_warm = 2*R*10*warmgas**(1./3)
-    print(sigma_warm, R)
-    x_warm = np.random.normal(size=(N_warm,3))*sigma_warm
-    r_warm = np.sum(x_warm**2,axis=1)**0.5
-    R_warm = np.sum(x_warm[:,:2]**2,axis=1)**0.5
+    # assuming 10K vs 10^4K gas: factor of ~10^3 density contrast
+    rho_warm = M_gas*3/(4*np.pi*R**3) / 1000
+    M_warm = (boxsize**3 - (4*np.pi*R**3 / 3)) * rho_warm # mass of diffuse box-filling medium
+    N_warm = int(M_warm/(M_gas/N_gas))
+    x_warm = boxsize*np.random.rand(N_warm, 3) - boxsize/2
     x = np.concatenate([x, x_warm])
-#    V = meshoid.meshoid(x).vol
     v = np.concatenate([v, np.zeros((N_warm,3))])
     Bmag = np.average(np.sum(B**2,axis=1))**0.5
-    B = np.concatenate([B, Bmag * np.exp(-R_warm**2/(2*sigma_warm**2))[:,np.newaxis] * np.array([0,0,1])])
-#    VB = V[:,np.newaxis] * B
+    B = np.concatenate([B, np.repeat(Bmag,N_warm)[:,np.newaxis] * np.array([0,0,1])])
     mgas = np.concatenate([mgas, np.repeat(M_gas/N_gas,N_warm)])
-#    warm_ngb = cKDTree(x).query(x_warm,32)[1]
-#    for i in range(3):
-#        v[N_gas:] = np.average(v[warm_ngb],axis=1)
-#        VB[N_gas:] = np.average(VB[warm_ngb],axis=1)
-#    B = VB/V[:,np.newaxis]
+    
+    # old kludgy way of setting up diffuse medium with uniform B field; probably don't use this
+    # N_warm = int(warmgas*N_gas+0.5)
+    # sigma_warm = 2*R*10*warmgas**(1./3)
+    # x_warm = np.random.normal(size=(N_warm,3))*sigma_warm
+    # r_warm = np.sum(x_warm**2,axis=1)**0.5
+    # R_warm = np.sum(x_warm[:,:2]**2,axis=1)**0.5
+    # x = np.concatenate([x, x_warm])
+    # v = np.concatenate([v, np.zeros((N_warm,3))])
+    # Bmag = np.average(np.sum(B**2,axis=1))**0.5
+    # B = np.concatenate([B, Bmag * np.exp(-R_warm**2/(2*sigma_warm**2))[:,np.newaxis] * np.array([0,0,1])])
+    # mgas = np.concatenate([mgas, np.repeat(M_gas/N_gas,N_warm)])
+
 else:
     N_warm = 0
 
+M = meshoid.meshoid(x,mgas)
+#rho = 32*mgas / (4*np.pi/3 * h**3)
+#print(h)
+rho, h = M.Density(), M.SmoothingLength()
+
+if arguments["--boxsize"] is not None or arguments["--warmgas"]: x += boxsize/2
 
 print("Writing snapshot...")
 F=h5py.File(filename, 'w')
@@ -286,13 +301,13 @@ F.create_group("Header")
 F["Header"].attrs["NumPart_ThisFile"] = [N_gas+N_warm,0,0,0,0,(1 if M_BH>0 else 0)]
 F["Header"].attrs["NumPart_Total"] = [N_gas+N_warm,0,0,0,0,(1 if M_BH>0 else 0)]
 F["Header"].attrs["MassTable"] = [M_gas/N_gas,0,0,0,0, M_BH]
-F["Header"].attrs["BoxSize"] = 1e6
+F["Header"].attrs["BoxSize"] = boxsize
 F["Header"].attrs["Time"] = 0.0
 F["PartType0"].create_dataset("Masses", data=mgas)
 F["PartType0"].create_dataset("Coordinates", data=x)
 F["PartType0"].create_dataset("Velocities", data=v)
 F["PartType0"].create_dataset("ParticleIDs", data=np.arange(N_gas+N_warm)+(1 if M_BH>0 else 0))
-F["PartType0"].create_dataset("InternalEnergy", data=np.ones(N_gas+N_warm))
+#F["PartType0"].create_dataset("InternalEnergy", data=np.ones(N_gas+N_warm))
 F["PartType0"].create_dataset("Density", data=rho)
 F["PartType0"].create_dataset("SmoothingLength", data=h)
 if magnetic_field > 0.0:
