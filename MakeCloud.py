@@ -24,6 +24,7 @@ Options:
    --boxsize=<f>        Simulation box size - sets up a sphere in thermal pressure equilibrium with a diffuse box-filling medium.
    --warmgas            Add warm ISM envelope in pressure equilibrium that fills the box with uniform density.
    --phimode=<f>        Relative amplitude of m=2 density perturbation (e.g. for Boss-Bodenheimer test) [default: 0.0]
+   --localmode          Changes directory defaults assuming all files are used from local directory.
 """
 import meshoid
 import numpy as np
@@ -123,7 +124,12 @@ turb_path = arguments["--turb_path"]
 glass_path = arguments["--glass_path"]
 G = float(arguments["--G"])
 warmgas = arguments["--warmgas"]
-#print(warmgas)
+localmode = arguments["--localmode"]
+
+if localmode:
+    turb_path = "turb"
+    glass_path = "glass_256.npy"
+
 if arguments["--boxsize"] is not None:
 #    print(arguments["--boxsize"])
     boxsize = float(arguments["--boxsize"])
@@ -171,7 +177,10 @@ else:
     x = 2*(np.load(glass_path)-0.5)
     Nx = len(x)
     if len(x)*np.pi*4/3 / 8 < N_gas:
-        x = 2*(np.load("/home/mgrudic/glass.npy")-0.5)
+        if localmode:
+            x = 2*(np.load("glass_256.npy")-0.5)
+        else:
+            x = 2*(np.load("/home/mgrudic/glass.npy")-0.5)
         
     r = np.sum(x**2, axis=1)**0.5
     x = x[r.argsort()][:N_gas]
