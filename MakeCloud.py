@@ -25,7 +25,7 @@ Options:
    --warmgas            Add warm ISM envelope in pressure equilibrium that fills the box with uniform density.
    --phimode=<f>        Relative amplitude of m=2 density perturbation (e.g. for Boss-Bodenheimer test) [default: 0.0]
 """
-import meshoid
+
 import numpy as np
 from scipy import fftpack, interpolate, ndimage
 from scipy.integrate import quad, odeint, solve_bvp
@@ -249,15 +249,14 @@ x = r[:,np.newaxis]*np.c_[np.cos(phi)*np.sin(theta), np.sin(phi)*np.sin(theta), 
 
 #print(h)
 if turb_type=='full':
-    #print(np.sqrt(turbulence*ugrav/Eturb))
+    import meshoid
+    M = meshoid.meshoid(x,mgas)
+    rho, h = M.Density(), M.SmoothingLength()
     uB = np.sum(np.sum(B*B, axis=1) * 4*np.pi/3 *h**3 /32 * 3.09e21**3)* 0.03979 *5.03e-54
-    beta = np.sum(0.5*mgas*np.sum(v**2,axis=1))/uB #np.sum(np.sum(B**2,axis=1)*h**3) #(np.sum(mgas*np.sum(v**2,axis=1))*0.5)/(np.sum(np.sum(B**2,axis=1)*(4*np.pi/3*h**3/32))/(8*np.pi))
-#    print(beta, plasma_beta)
-    print(np.sqrt(beta/plasma_beta))
-    B *= np.sqrt(beta/plasma_beta) #np.sqrt(turbulence*ugrav/Eturb)
+    beta = np.sum(0.5*mgas*np.sum(v**2,axis=1))/uB
+    B *= np.sqrt(beta/plasma_beta)
     uB = np.sum(np.sum(B*B, axis=1) * 4*np.pi/3 *h**3 /32 * 3.09e21**3)* 0.03979 *5.03e-54
-#    beta = np.sum(mgas*np.sum(v**2,axis=1))/np.sum(np.sum(B**2,axis=1)*h**3) #(np.sum(mgas*np.sum(v**2,axis=1))*0.5)/(np.sum(np.sum(B**2,axis=1)*(4*np.pi/3*h**3/32))/(8*np.pi))
-#    print(beta/plasma_beta)
+
 u = np.ones_like(mgas)*0.101
 if warmgas:
     # assuming 10K vs 10^4K gas: factor of ~10^3 density contrast
@@ -288,10 +287,11 @@ if warmgas:
 else:
     N_warm = 0
 
-M = meshoid.meshoid(x,mgas)
-#rho = 32*mgas / (4*np.pi/3 * h**3)
-#print(h)
-rho, h = M.Density(), M.SmoothingLength()
+
+if turb_type!='full': 
+    rho = np.repeat(3*M_gas/(4*np.pi*R**3), len(mgas))
+    rho[-N_warm:] /= 1000
+    h = (32*mgas/rho)**(1./3)
 
 if arguments["--boxsize"] is not None or arguments["--warmgas"]: x += boxsize/2
 
