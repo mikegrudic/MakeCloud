@@ -24,7 +24,12 @@ Options:
    --boxsize=<f>        Simulation box size - sets up a sphere in thermal pressure equilibrium with a diffuse box-filling medium.
    --warmgas            Add warm ISM envelope in pressure equilibrium that fills the box with uniform density.
    --phimode=<f>        Relative amplitude of m=2 density perturbation (e.g. for Boss-Bodenheimer test) [default: 0.0]
-   --localmode          Changes directory defaults assuming all files are used from local directory.
+   --localdir           Changes directory defaults assuming all files are used from local directory.
+   --B_unit=<gauss>     Unit of magnetic field in gauss [default: 1.0]
+   --length_unit=<pc>   Unit of length in pc [default: 1000]
+   --mass_unit=<msun>   Unit of mass in M_sun [default: 1e10]
+   --v_unit=<m/s>       Unit of velocity in m/s [default: 1000]
+   --GMC_units          Sets units appropriate for GMCs, so pc, m/s, m_sun, tesla
 """
 
 import numpy as np
@@ -124,9 +129,20 @@ turb_path = arguments["--turb_path"]
 glass_path = arguments["--glass_path"]
 G = float(arguments["--G"])
 warmgas = arguments["--warmgas"]
-localmode = arguments["--localmode"]
+localdir = arguments["--localdir"]
+GMC_units = arguments["--GMC_units"]
+B_unit = float(arguments["--B_unit"])
+length_unit = float(arguments["--length_unit"])
+mass_unit = float(arguments["--mass_unit"])
+v_unit = float(arguments["--v_unit"])
 
-if localmode:
+if GMC_units:
+    B_unit = 1e4
+    length_unit = 1.0
+    mass_unit = 1.0
+    v_unit = 1.0
+
+if localdir:
     turb_path = "turb"
     glass_path = "glass_256.npy"
 
@@ -177,7 +193,7 @@ else:
     x = 2*(np.load(glass_path)-0.5)
     Nx = len(x)
     if len(x)*np.pi*4/3 / 8 < N_gas:
-        if localmode:
+        if localdir:
             x = 2*(np.load("glass_256.npy")-0.5)
         else:
             x = 2*(np.load("/home/mgrudic/glass.npy")-0.5)
@@ -310,21 +326,29 @@ F.create_group("PartType0")
 F.create_group("Header")
 F["Header"].attrs["NumPart_ThisFile"] = [N_gas+N_warm,0,0,0,0,(1 if M_BH>0 else 0)]
 F["Header"].attrs["NumPart_Total"] = [N_gas+N_warm,0,0,0,0,(1 if M_BH>0 else 0)]
-F["Header"].attrs["MassTable"] = [M_gas/N_gas,0,0,0,0, M_BH]
-F["Header"].attrs["BoxSize"] = boxsize
+F["Header"].attrs["MassTable"] = [M_gas/N_gas*1e10/mass_unit,0,0,0,0, M_BH*1e10/mass_unit]
+F["Header"].attrs["BoxSize"] = boxsize*1000/length_unit
 F["Header"].attrs["Time"] = 0.0
-F["PartType0"].create_dataset("Masses", data=mgas)
-F["PartType0"].create_dataset("Coordinates", data=x)
-F["PartType0"].create_dataset("Velocities", data=v)
+F["PartType0"].create_dataset("Masses", data=mgas*1e10/mass_unit)
+F["PartType0"].create_dataset("Coordinates", data=x*1000/length_unit)
+F["PartType0"].create_dataset("Velocities", data=v*1000/v_unit)
 F["PartType0"].create_dataset("ParticleIDs", data=np.arange(N_gas+N_warm)+(1 if M_BH>0 else 0))
-F["PartType0"].create_dataset("InternalEnergy", data=u)
-F["PartType0"].create_dataset("Density", data=rho)
-F["PartType0"].create_dataset("SmoothingLength", data=h)
+F["PartType0"].create_dataset("InternalEnergy", data=u*(1000/v_unit)**2)
+F["PartType0"].create_dataset("Density", data=rho*1e10/mass_unit/(1000/length_unit)**3)
+F["PartType0"].create_dataset("SmoothingLength", data=h*1000/length_unit)
 if magnetic_field > 0.0:
-    F["PartType0"].create_dataset("MagneticField", data=B)
+    F["PartType0"].create_dataset("MagneticField", data=B/B_unit)
 if M_BH > 0:
     F.create_group("PartType5")
-    F["PartType5"].create_dataset("Masses", data=[M_BH,])
+    F["PartType5"].create_dataset("Masses", data=[M_BH*1e10/mass_unit,])
     F["PartType5"].create_dataset("Coordinates", data=[[0,0,0]])
     F["PartType5"].create_dataset("Velocities", data=[[0,0,0]])
 F.close()
+
+if GMC_units:
+    print "Cloud density: ", (np.sum(mgas)*1e10/mass_unit/(4.0/3.0*3.141*(R*1000/length_unit)**3)), " M_sun/pc^3", '   ',  (np.sum(mgas)*1e10/mass_unit/(4.0/3.0*3.141*(R*1000/length_unit)**3)/24532.3*1e6), " mu^(-1) cm^(-3)" 
+    #n_crit mased on assumption that dm=M_jeans, meaning that densest is still resolved by NJ particles
+    ncrit=(360684.5/((M_gas*1e10/mass_unit/N_gas)**2))
+    print "n_crit assuming NJ*dm=M_jeans: ", ncrit ,"T10^3 NJ(^-2) mu^(-4) cm^(-3)"
+    #10^10 cm^-3 -> 2.45*10^8*mu*M_sun/pc^3, where mu is molecular weight
+    print "dx_min: ", ((np.sum(mgas)*1e10/mass_unit/(2.45e8*ncrit/1e10))**(1/3.0)), "T10^(-1) NJ(^2/3) mu^(4/3) pc"
