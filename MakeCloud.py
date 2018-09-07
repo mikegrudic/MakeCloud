@@ -345,10 +345,25 @@ if M_BH > 0:
     F["PartType5"].create_dataset("Velocities", data=[[0,0,0]])
 F.close()
 
-if GMC_units:
-    print "Cloud density: ", (np.sum(mgas)*1e10/mass_unit/(4.0/3.0*3.141*(R*1000/length_unit)**3)), " M_sun/pc^3", '   ',  (np.sum(mgas)*1e10/mass_unit/(4.0/3.0*3.141*(R*1000/length_unit)**3)/24532.3*1e6), " mu^(-1) cm^(-3)" 
+if GMC_units:   
+#    print "Cloud density: ", (np.sum(mgas)*1e10/mass_unit/(4.0/3.0*3.141*(R*1000/length_unit)**3)), " M_sun/pc^3", '   ',  (np.sum(mgas)*1e10/mass_unit/(4.0/3.0*3.141*(R*1000/length_unit)**3)/24532.3*1e6), " mu^(-1) cm^(-3)" 
     #n_crit mased on assumption that dm=M_jeans, meaning that densest is still resolved by NJ particles
-    ncrit=(360684.5/((M_gas*1e10/mass_unit/N_gas)**2))
-    print "n_crit assuming NJ*dm=M_jeans: ", ncrit ,"T10^3 NJ(^-2) mu^(-4) cm^(-3)"
+    delta_m = M_gas*1e10/mass_unit/N_gas
+    rhocrit = 421/ delta_m**2
+    rho_avg = 3*M_gas*1e10/(R*1e3)**3
+    softening = (delta_m/rhocrit)**(1./3)
+    ncrit = 17030 / delta_m**2
+    tff = 8.275e-3 * rho_avg**-0.5
+
+#   ncrit=(360684.5/((M_gas*1e10/mass_unit/N_gas)**2))
+    #print "n_crit assuming NJ*dm=M_jeans: ", ncrit ,"T10^3 NJ(^-2) mu^(-4) cm^(-3)", np.log10(ncrit)
     #10^10 cm^-3 -> 2.45*10^8*mu*M_sun/pc^3, where mu is molecular weight
-    print "dx_min: ", ((np.sum(mgas)*1e10/mass_unit/(2.45e8*ncrit/1e10))**(1/3.0)), "T10^(-1) NJ(^2/3) mu^(4/3) pc"
+#    print "dx_min: ", ((np.sum(mgas)*1e10/mass_unit/(2.45e8*ncrit/1e10))**(1/3.0)), "T10^(-1) NJ(^2/3) mu^(4/3) pc"
+    paramsfile = str(open(os.path.realpath(__file__).replace("MakeCloud.py","params.txt"), 'r').read())
+    replacements = {"NAME": filename, "DTSNAP": tff/30, "SOFTENING": softening, "TMAX": tff*3, "RHOMAX": ncrit, "BOXSIZE": 10*R*1e3/length_unit}
+#    print(paramsfile)
+    for k in replacements.keys():
+        paramsfile = paramsfile.replace(k, str(replacements[k])) 
+    open("params.txt", "w").write(paramsfile)
+    
+
