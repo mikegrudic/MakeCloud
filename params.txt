@@ -19,7 +19,7 @@ SnapFormat  3  % 1=unformatted (gadget) binary, 3=hdf5
 %---- Output parameters 
 RestartFile                 restart 
 SnapshotFileBase            snapshot 
-OutputListOn                1  % =1 to use list in "OutputListFilename" 
+OutputListOn                0  % =1 to use list in "OutputListFilename" 
 OutputListFilename          output_times.txt  % list of times (in code units) for snaps
 NumFilesPerSnapshot         1
 NumFilesWrittenInParallel   1  % must be < N_processors & power of 2
@@ -83,7 +83,7 @@ MinGasHsmlFractional    0       % minimum kernel length relative to gas force so
 %----- Softening lengths per particle type. If ADAPTIVE_GRAVSOFT is set, these  
 %-------- are the minimum softening allowed for each type ------- 
 %-------- (units are co-moving for cosmological integrations)
-SofteningGas    1e-100    % gas (particle type=0) (in co-moving code units)
+SofteningGas    1e-15   % gas (particle type=0) (in co-moving code units)
 SofteningHalo   0.020    % dark matter/collisionless particles (type=1)
 SofteningDisk   0.150    % collisionless particles (type=2)
 SofteningBulge  0.500    % collisionless particles (type=3)
@@ -207,7 +207,7 @@ TimeBetOnTheFlyFoF           1.01       % time (in code units, e.g. scale-factor
 BlackHoleAccretionFactor     1.0	    % multiplier for mdot (relative to model)
 BlackHoleEddingtonFactor     1e100	    % fraction of eddington to cap (can be >1) 
 BlackHoleNgbFactor           5.0	    % multiplier for kernel neighbors for BH 
-BlackHoleMaxAccretionRadius  0.1	    % max radius for BH neighbor search/accretion (code units)
+BlackHoleMaxAccretionRadius  BOXSIZE	    % max radius for BH neighbor search/accretion (code units)
 BlackHoleRadiativeEfficiency 0.0        % radiative efficiency (for accretion and feedback)
 %--- feedback 
 BlackHoleFeedbackFactor      1.0	    % generic feedback strength multiplier 
