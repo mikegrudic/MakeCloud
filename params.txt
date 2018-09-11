@@ -48,7 +48,7 @@ MinSizeTimestep         1.0e-15 % set this very low, or get the wrong answer
 UnitLength_in_cm            3.085678e18     % 1.0pc
 UnitMass_in_g               1.989e33          % solar mass
 UnitVelocity_in_cm_per_s    1.0e2           % 1 km/sec
-UnitMagneticField_in_gauss  1e4               % 1 gauss
+UnitMagneticField_in_gauss  1e4               % 1 tesla
 GravityConstantInternal     0                % calculated by code if =0
 
 %---- Cosmological parameters
