@@ -57,8 +57,10 @@ def TurbField(res=256, minmode=2, maxmode = 64, sol_weight=1., seed=42):
     for i in range(3):
         np.random.seed(seed+i)
         rand_phase = fftpack.fftn(np.random.normal(size=kSqr.shape)) # fourier transform of white noise
-        vk = rand_phase * (float(minmode)/res)**2 / kSqr
-        vk[intkSqr < minmode**2] = 0.0     # freeze out modes lower than minmode                                                                                               
+        vk = rand_phase * (float(minmode)/res)**2 / (kSqr+1e-300)
+        #vk[intkSqr < minmode**2] = 0.0     # freeze out modes lower than minmode
+        print(intkSqr[intkSqr < minmode**2])
+        vk[intkSqr < minmode**2] *= intkSqr[intkSqr < minmode**2]/minmode**2 # smoother filter than above; should give less "ringing" artifacts                                                
         vk *= np.exp(-intkSqr/maxmode**2)
         VK.append(vk)
     VK = np.array(VK)
@@ -70,47 +72,15 @@ def TurbField(res=256, minmode=2, maxmode = 64, sol_weight=1., seed=42):
         for j in range(3):
             if i==j:
                 vk_new[i] += sol_weight * VK[j]
-            vk_new[i] += (1 - 2 * sol_weight) * freq3d[i]*freq3d[j]/kSqr * VK[j]
+            vk_new[i] += (1 - 2 * sol_weight) * freq3d[i]*freq3d[j]/(kSqr+1e-300) * VK[j]
     vk_new[:,kSqr==0] = 0.0
     VK = vk_new
     
     vel = np.array([fftpack.ifftn(vk).real for vk in VK]) # transform back to real space
+    vel -= np.average(vel,axis=(1,2,3))[:,np.newaxis,np.newaxis,np.newaxis]
     vel = vel / np.sqrt(np.sum(vel**2,axis=0).mean()) # normalize so that RMS is 1
     return np.array(vel)
 
-def TurbField(res=256, minmode=2, maxmode = 64, sol_weight=1., seed=42):
-    freqs = fftpack.fftfreq(res)
-    freq3d = np.array(np.meshgrid(freqs,freqs,freqs,indexing='ij'))
-    intfreq = np.around(freq3d*res)
-    kSqr = np.sum(np.abs(freq3d)**2,axis=0)
-    intkSqr = np.sum(np.abs(intfreq)**2, axis=0)
-    VK = []
-
-    vSqr = 0.0
-    # apply ~k^-2 exp(-k^2/kmax^2) filter to white noise to get x, y, and z components of velocity field
-    for i in range(3):
-        np.random.seed(seed+i)
-        rand_phase = fftpack.fftn(np.random.normal(size=kSqr.shape)) # fourier transform of white noise
-        vk = rand_phase * (float(minmode)/res)**2 / kSqr
-        vk[intkSqr < minmode**2] = 0.0     # freeze out modes lower than minmode                                                                                               
-        vk *= np.exp(-intkSqr/maxmode**2)
-        VK.append(vk)
-    VK = np.array(VK)
-    
-    vk_new = np.zeros_like(VK)
-    
-    # do projection operator to get the correct mix of compressive and solenoidal
-    for i in range(3):
-        for j in range(3):
-            if i==j:
-                vk_new[i] += sol_weight * VK[j]
-            vk_new[i] += (1 - 2 * sol_weight) * freq3d[i]*freq3d[j]/kSqr * VK[j]
-    vk_new[:,kSqr==0] = 0.0
-    VK = vk_new
-    
-    vel = np.array([fftpack.ifftn(vk).real for vk in VK]) # transform back to real space
-    vel = vel / np.sqrt(np.sum(vel**2,axis=0).mean()) # normalize so that RMS is 1
-    return np.array(vel)
 
 arguments = docopt(__doc__)
 R = float(arguments["--R"])/1e3
@@ -148,7 +118,7 @@ if localdir:
 
 if arguments["--boxsize"] is not None:
 #    print(arguments["--boxsize"])
-    boxsize = float(arguments["--boxsize"])
+    boxsize = float(arguments["--boxsize"])/length_unit
 else:
     boxsize = 10*R
 res_effective = int(N_gas**(1.0/3.0)+0.5)
@@ -264,8 +234,7 @@ if magnetic_field>0.0 and turb_type != 'full':
 
 v = v - np.average(v, axis=0)
 x = x - np.average(x, axis=0)
-#print mgas, x, v, B
-#mgas *= (1 + phimode*np.sin(2*phi))
+
 r, phi = np.sum(x**2,axis=1)**0.5, np.arctan2(x[:,1],x[:,0])
 theta = np.arccos(x[:,2]/r)
 phi += phimode*np.sin(2*phi)/2
@@ -288,6 +257,7 @@ if warmgas:
     rho_warm = M_gas*3/(4*np.pi*R**3) / 1000
     M_warm = (boxsize**3 - (4*np.pi*R**3 / 3)) * rho_warm # mass of diffuse box-filling medium
     N_warm = int(M_warm/(M_gas/N_gas))
+    print(N_warm)
     x_warm = boxsize*np.random.rand(N_warm, 3) - boxsize/2
     x_warm = x_warm[np.sum(x_warm**2,axis=1) > R**2]
     N_warm = len(x_warm)
@@ -315,11 +285,11 @@ else:
 
 if turb_type!='full': 
     rho = np.repeat(3*M_gas/(4*np.pi*R**3), len(mgas))
-    rho[-N_warm:] /= 1000
+    if warmgas: rho[-N_warm:] /= 1000
     h = (32*mgas/rho)**(1./3)
 
 if arguments["--boxsize"] is not None or arguments["--warmgas"]: x += boxsize/2
-
+print(B,h)
 print("Writing snapshot...")
 F=h5py.File(filename, 'w')
 F.create_group("PartType0")
