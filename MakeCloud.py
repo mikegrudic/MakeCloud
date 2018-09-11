@@ -59,9 +59,12 @@ def TurbField(res=256, minmode=2, maxmode = 64, sol_weight=1., seed=42):
         rand_phase = fftpack.fftn(np.random.normal(size=kSqr.shape)) # fourier transform of white noise
         vk = rand_phase * (float(minmode)/res)**2 / (kSqr+1e-300)
         #vk[intkSqr < minmode**2] = 0.0     # freeze out modes lower than minmode
-        print(intkSqr[intkSqr < minmode**2])
-        vk[intkSqr < minmode**2] *= intkSqr[intkSqr < minmode**2]/minmode**2 # smoother filter than above; should give less "ringing" artifacts                                                
+#        print(intkSqr[intkSqr < minmode**2])
+        vk[intkSqr==0] = 0.0
+#        vk[intkSqr>0] *= np.exp(-minmode**2/intkSqr)
+        vk[intkSqr < minmode**2] *= intkSqr[intkSqr < minmode**2]**2/minmode**4 # smoother filter than mode-freezing; should give less "ringing" artifacts
         vk *= np.exp(-intkSqr/maxmode**2)
+
         VK.append(vk)
     VK = np.array(VK)
     
@@ -257,7 +260,7 @@ if warmgas:
     rho_warm = M_gas*3/(4*np.pi*R**3) / 1000
     M_warm = (boxsize**3 - (4*np.pi*R**3 / 3)) * rho_warm # mass of diffuse box-filling medium
     N_warm = int(M_warm/(M_gas/N_gas))
-    print(N_warm)
+#    print(N_warm)
     x_warm = boxsize*np.random.rand(N_warm, 3) - boxsize/2
     x_warm = x_warm[np.sum(x_warm**2,axis=1) > R**2]
     N_warm = len(x_warm)
@@ -289,7 +292,7 @@ if turb_type!='full':
     h = (32*mgas/rho)**(1./3)
 
 if arguments["--boxsize"] is not None or arguments["--warmgas"]: x += boxsize/2
-print(B,h)
+#print(B,h)
 print("Writing snapshot...")
 F=h5py.File(filename, 'w')
 F.create_group("PartType0")
