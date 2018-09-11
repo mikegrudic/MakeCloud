@@ -334,6 +334,6 @@ if GMC_units:
 #    print(paramsfile)
     for k in replacements.keys():
         paramsfile = paramsfile.replace(k, str(replacements[k])) 
-    open("params.txt", "w").write(paramsfile)
+    open("params_"+filename.replace(".hdf5","")+".txt", "w").write(paramsfile)
     
 
