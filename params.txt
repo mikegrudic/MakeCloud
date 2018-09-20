@@ -83,7 +83,7 @@ MinGasHsmlFractional    0       % minimum kernel length relative to gas force so
 %----- Softening lengths per particle type. If ADAPTIVE_GRAVSOFT is set, these  
 %-------- are the minimum softening allowed for each type ------- 
 %-------- (units are co-moving for cosmological integrations)
-SofteningGas    1e-15   % gas (particle type=0) (in co-moving code units)
+SofteningGas    GASSOFT   % gas (particle type=0) (in co-moving code units)
 SofteningHalo   0.020    % dark matter/collisionless particles (type=1)
 SofteningDisk   0.150    % collisionless particles (type=2)
 SofteningBulge  0.500    % collisionless particles (type=3)
@@ -277,3 +277,16 @@ Tillotson_EOS_params_Y0         8.5e10  % hugoniot elastic limit in [erg/cm^3]  
 
 
 
+
+%--- Developer-Mode Parameters (usually hard-coded, but set manually if DEVELOPER_MODE is on) --------
+ErrTolTheta                  0.7    % 0.7=standard
+ErrTolForceAcc               0.0025 % 0.0025=standard
+ErrTolIntAccuracy        0.01  % <0.02
+CourantFac               0.1    % <0.20
+MaxRMSDisplacementFac    0.125  % <0.25
+MaxNumNgbDeviation      0.05    % <<DesNumNgb (values<1 are fine)
+AGS_MaxNumNgbDeviation  0.10  % tolerance in Nngb (make larger than gas)
+%---- Magneto-Hydrodynamics Developer-Mode Parameters (MAGNETIC on)
+%--- Dedner 2002 div-cleaning parameters
+DivBcleaningParabolicSigma   1.0 % (3D~0.7-1.0,2D~0.2-0.3)
+DivBcleaningHyperbolicSigma  1.0 % (~1)

@@ -130,6 +130,7 @@ phimode=float(arguments["--phimode"])
 if filename==None:
     filename = "M%3.2g_"%(1e10*M_gas) + ("MBH%g_"%(1e10*M_BH) if M_BH>0 else "") + "R%g_S%g_T%g_B%g_Res%d_n%d_sol%g"%(R*1e3,spin,turbulence,magnetic_field,res_effective,minmode,turb_sol) +  ("_%d"%turb_seed) + ".hdf5"
     filename = filename.replace("+","").replace('e0','e')
+    filename = "".join(filename.split())
 
 mgas = np.repeat(M_gas/N_gas, N_gas)
 
@@ -178,8 +179,9 @@ else:
     r = np.sum(x**2,axis=1)**0.5
 
     x, r = x/r.max(), r/r.max()
-    
+#    rnew = r * R
     rho_form = lambda r: 1. #change this function to get a different radial density profile; normalization does not matter as long as rmin and rmax are properly specified
+#    rho_form = lambda r: (r)**-2.
     rmin = 0.
     rho_norm = quad(lambda r: rho_form(r) * 4 * np.pi * r**2, rmin, R)[0]
     rho = lambda r: rho_form(r) / rho_norm
@@ -333,7 +335,8 @@ if GMC_units:
     #10^10 cm^-3 -> 2.45*10^8*mu*M_sun/pc^3, where mu is molecular weight
 #    print "dx_min: ", ((np.sum(mgas)*1e10/mass_unit/(2.45e8*ncrit/1e10))**(1/3.0)), "T10^(-1) NJ(^2/3) mu^(4/3) pc"
     paramsfile = str(open(os.path.realpath(__file__).replace("MakeCloud.py","params.txt"), 'r').read())
-    replacements = {"NAME": filename.replace(".hdf5",""), "DTSNAP": tff/30, "SOFTENING": softening, "TMAX": tff*3, "RHOMAX": ncrit, "BOXSIZE": 10*R*1e3/length_unit}
+    replacements = {"NAME": filename.replace(".hdf5",""), "DTSNAP": tff/30, "SOFTENING": softening, "GASSOFT": softening/10, "TMAX": tff*5, "RHOMAX": ncrit, "BOXSIZE": 10*R*1e3/length_unit}
+    print(replacements["NAME"])
 #    print(paramsfile)
     for k in replacements.keys():
         paramsfile = paramsfile.replace(k, str(replacements[k])) 
