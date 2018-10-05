@@ -11,7 +11,7 @@ Options:
    --filename=<name>    Name of the IC file to be generated
    --N=<N>              Number of gas particles [default: 125000]
    --MBH=<msun>         Mass of the central black hole [default: 0.0]
-   --S=<f>              Rotational frequency as a fraction of Keplerian [default: 0.0]
+   --spin=<f>           Spin parameter: fraction of binding energy in solid-body rotation [default: 0.0]
    --turb_type=<s>      Type of initial turbulent velocity (and possibly density field): 'gaussian' or 'full' [default: gaussian]
    --turb_sol=<f>       Fraction of turbulence in solenoidal modes, used when turb_type is 'gaussian' [default: 1.0]
    --turb_seed=<N>      Random seed for gaussian random field turbulence [default: 42]
@@ -90,7 +90,7 @@ R = float(arguments["--R"])/1e3
 M_gas = float(arguments["--M"])/1e10
 N_gas = int(float(arguments["--N"])+0.5)
 M_BH = float(arguments["--MBH"])/1e10
-spin = float(arguments["--S"])
+spin = float(arguments["--spin"])
 turbulence = float(arguments["--alpha_turb"])
 turb_type = arguments["--turb_type"]
 turb_seed = int(float(arguments["--turb_seed"])+0.5)
@@ -180,8 +180,8 @@ else:
 
     x, r = x/r.max(), r/r.max()
 #    rnew = r * R
-    rho_form = lambda r: 1. #change this function to get a different radial density profile; normalization does not matter as long as rmin and rmax are properly specified
-#    rho_form = lambda r: (r)**-2.
+#    rho_form = lambda r: 1. #change this function to get a different radial density profile; normalization does not matter as long as rmin and rmax are properly specified
+    rho_form = lambda r: (r+R/1000)**-1.5
     rmin = 0.
     rho_norm = quad(lambda r: rho_form(r) * 4 * np.pi * r**2, rmin, R)[0]
     rho = lambda r: rho_form(r) / rho_norm
@@ -222,8 +222,8 @@ ugrav = G * np.sum(Mr/ r * mgas)
 #print(ugrav)
 E_rot = spin * ugrav
 I_z = np.sum(mgas * (x[:,0]**2+x[:,1]**2))
-#omega = (2*E_rot/I_z)**0.5
-omega = spin * np.sqrt(G*(M_BH+M_gas)/R**3)
+omega = (2*E_rot/I_z)**0.5
+#omega = spin * np.sqrt(G*(M_BH+M_gas)/R**3)
 
 v -= np.average(v,axis=0)
 Eturb = 0.5*M_gas/N_gas*np.sum(v**2)
@@ -335,7 +335,7 @@ if GMC_units:
     #10^10 cm^-3 -> 2.45*10^8*mu*M_sun/pc^3, where mu is molecular weight
 #    print "dx_min: ", ((np.sum(mgas)*1e10/mass_unit/(2.45e8*ncrit/1e10))**(1/3.0)), "T10^(-1) NJ(^2/3) mu^(4/3) pc"
     paramsfile = str(open(os.path.realpath(__file__).replace("MakeCloud.py","params.txt"), 'r').read())
-    replacements = {"NAME": filename.replace(".hdf5",""), "DTSNAP": tff/30, "SOFTENING": softening, "GASSOFT": softening/10, "TMAX": tff*5, "RHOMAX": ncrit, "BOXSIZE": 10*R*1e3/length_unit}
+    replacements = {"NAME": filename.replace(".hdf5",""), "DTSNAP": tff/30, "SOFTENING": softening, "GASSOFT": softening/100, "TMAX": tff*5, "RHOMAX": ncrit, "BOXSIZE": 10*R*1e3/length_unit}
     print(replacements["NAME"])
 #    print(paramsfile)
     for k in replacements.keys():
