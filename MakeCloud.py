@@ -335,7 +335,7 @@ if GMC_units:
     #10^10 cm^-3 -> 2.45*10^8*mu*M_sun/pc^3, where mu is molecular weight
 #    print "dx_min: ", ((np.sum(mgas)*1e10/mass_unit/(2.45e8*ncrit/1e10))**(1/3.0)), "T10^(-1) NJ(^2/3) mu^(4/3) pc"
     paramsfile = str(open(os.path.realpath(__file__).replace("MakeCloud.py","params.txt"), 'r').read())
-    replacements = {"NAME": filename.replace(".hdf5",""), "DTSNAP": tff/30, "SOFTENING": softening, "GASSOFT": softening/10, "TMAX": tff*5, "RHOMAX": ncrit, "BOXSIZE": 10*R*1e3/length_unit}
+    replacements = {"NAME": filename.replace(".hdf5",""), "DTSNAP": tff/30, "SOFTENING": softening, "GASSOFT": 2.0e-8, "TMAX": tff*5, "RHOMAX": ncrit, "BOXSIZE": 10*R*1e3/length_unit}
     print(replacements["NAME"])
 #    print(paramsfile)
     for k in replacements.keys():
