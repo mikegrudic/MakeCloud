@@ -256,7 +256,7 @@ if turb_type=='full':
     B *= np.sqrt(beta/plasma_beta)
     uB = np.sum(np.sum(B*B, axis=1) * 4*np.pi/3 *h**3 /32 * 3.09e21**3)* 0.03979 *5.03e-54
 
-u = np.ones_like(mgas)*0.101
+u = np.ones_like(mgas)*0.101/2.0 #/2 needed because it is molecular
 if warmgas:
     # assuming 10K vs 10^4K gas: factor of ~10^3 density contrast
     rho_warm = M_gas*3/(4*np.pi*R**3) / 1000
