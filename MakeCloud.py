@@ -256,7 +256,7 @@ if turb_type=='full':
     B *= np.sqrt(beta/plasma_beta)
     uB = np.sum(np.sum(B*B, axis=1) * 4*np.pi/3 *h**3 /32 * 3.09e21**3)* 0.03979 *5.03e-54
 
-u = np.ones_like(mgas)*0.101
+u = np.ones_like(mgas)*0.101/2.0 #/2 needed because it is molecular
 if warmgas:
     # assuming 10K vs 10^4K gas: factor of ~10^3 density contrast
     rho_warm = M_gas*3/(4*np.pi*R**3) / 1000
@@ -335,7 +335,9 @@ if GMC_units:
     #10^10 cm^-3 -> 2.45*10^8*mu*M_sun/pc^3, where mu is molecular weight
 #    print "dx_min: ", ((np.sum(mgas)*1e10/mass_unit/(2.45e8*ncrit/1e10))**(1/3.0)), "T10^(-1) NJ(^2/3) mu^(4/3) pc"
     paramsfile = str(open(os.path.realpath(__file__).replace("MakeCloud.py","params.txt"), 'r').read())
-    replacements = {"NAME": filename.replace(".hdf5",""), "DTSNAP": tff/30, "SOFTENING": softening, "GASSOFT": softening/100, "TMAX": tff*5, "RHOMAX": ncrit, "BOXSIZE": 10*R*1e3/length_unit}
+
+    replacements = {"NAME": filename.replace(".hdf5",""), "DTSNAP": tff/30, "SOFTENING": softening, "GASSOFT": 2.0e-8, "TMAX": tff*5, "RHOMAX": ncrit, "BOXSIZE": 10*R*1e3/length_unit}
+
     print(replacements["NAME"])
 #    print(paramsfile)
     for k in replacements.keys():
