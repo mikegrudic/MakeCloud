@@ -29,7 +29,7 @@ Options:
    --mass_unit=<msun>   Unit of mass in M_sun [default: 1e10]
    --v_unit=<m/s>       Unit of velocity in m/s [default: 1000]
    --sinkbox=<f>        Setup for light seeds in a turbulent box problem - parameter is the maximum seed mass in solar [default: 0.0]
-   --seed=<N>           Random seed for turbulence initialization [default: 42]
+   --turb_seed=<N>           Random seed for turbulence initialization [default: 42]
    --GMC_units          Sets units appropriate for GMCs, so pc, m/s, m_sun, tesla
 """
 
@@ -95,7 +95,7 @@ M_BH = float(arguments["--MBH"])/1e10
 spin = float(arguments["--spin"])
 turbulence = float(arguments["--alpha_turb"])
 turb_type = arguments["--turb_type"]
-seed = int(float(arguments["--seed"])+0.5)
+seed = int(float(arguments["--turb_seed"])+0.5)
 turb_sol = float(arguments["--turb_sol"])
 magnetic_field = float(arguments["--bturb"])
 minmode = int(arguments["--minmode"])
