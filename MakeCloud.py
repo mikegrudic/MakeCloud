@@ -14,14 +14,13 @@ Options:
    --spin=<f>           Spin parameter: fraction of binding energy in solid-body rotation [default: 0.0]
    --turb_type=<s>      Type of initial turbulent velocity (and possibly density field): 'gaussian' or 'full' [default: gaussian]
    --turb_sol=<f>       Fraction of turbulence in solenoidal modes, used when turb_type is 'gaussian' [default: 1.0]
-   --turb_seed=<N>      Random seed for gaussian random field turbulence [default: 42]
    --alpha_turb=<f>     Turbulent energy as a fraction of the binding energy [default: 1.]
    --bturb=<f>          Magnetic energy as a fraction of the binding energy [default: 0.01]
    --minmode=<N>        Minimum populated turbulent wavenumber for Gaussian initial velocity field, in units of pi/R [default: 2]
    --turb_path=<name>   Path to store turbulent velocity fields so that we only need to generate them once [default: /home/mgrudic/turb]
    --glass_path=<name>  Contains the root path of the glass ic [default: /home/mgrudic/glass_256.npy]
    --G=<f>              Gravitational constant in code units [default: 4.301e4]
-   --boxsize=<f>        Simulation box size - sets up a sphere in thermal pressure equilibrium with a diffuse box-filling medium.
+   --boxsize=<f>        Simulation box size
    --warmgas            Add warm ISM envelope in pressure equilibrium that fills the box with uniform density.
    --phimode=<f>        Relative amplitude of m=2 density perturbation (e.g. for Boss-Bodenheimer test) [default: 0.0]
    --localdir           Changes directory defaults assuming all files are used from local directory.
@@ -29,8 +28,11 @@ Options:
    --length_unit=<pc>   Unit of length in pc [default: 1000]
    --mass_unit=<msun>   Unit of mass in M_sun [default: 1e10]
    --v_unit=<m/s>       Unit of velocity in m/s [default: 1000]
+   --sinkbox=<f>        Setup for light seeds in a turbulent box problem - parameter is the maximum seed mass in solar [default: 0.0]
+   --seed=<N>           Random seed for turbulence initialization [default: 42]
    --GMC_units          Sets units appropriate for GMCs, so pc, m/s, m_sun, tesla
 """
+
 
 import numpy as np
 from scipy import fftpack, interpolate, ndimage
@@ -93,7 +95,7 @@ M_BH = float(arguments["--MBH"])/1e10
 spin = float(arguments["--spin"])
 turbulence = float(arguments["--alpha_turb"])
 turb_type = arguments["--turb_type"]
-turb_seed = int(float(arguments["--turb_seed"])+0.5)
+seed = int(float(arguments["--seed"])+0.5)
 turb_sol = float(arguments["--turb_sol"])
 magnetic_field = float(arguments["--bturb"])
 minmode = int(arguments["--minmode"])
@@ -108,7 +110,11 @@ B_unit = float(arguments["--B_unit"])
 length_unit = float(arguments["--length_unit"])
 mass_unit = float(arguments["--mass_unit"])
 v_unit = float(arguments["--v_unit"])
+sinkbox = float(arguments["--sinkbox"])
 
+if sinkbox:
+    turb_type = 'full'
+    
 if GMC_units:
     B_unit = 1e4
     length_unit = 1.0
@@ -122,41 +128,49 @@ if localdir:
 if arguments["--boxsize"] is not None:
 #    print(arguments["--boxsize"])
     boxsize = float(arguments["--boxsize"])/length_unit
+elif sinkbox:
+    boxsize = 2*R
 else:
     boxsize = 10*R
+
 res_effective = int(N_gas**(1.0/3.0)+0.5)
 phimode=float(arguments["--phimode"])
-
-if filename==None:
-    filename = "M%3.2g_"%(1e10*M_gas) + ("MBH%g_"%(1e10*M_BH) if M_BH>0 else "") + "R%g_S%g_T%g_B%g_Res%d_n%d_sol%g"%(R*1e3,spin,turbulence,magnetic_field,res_effective,minmode,turb_sol) +  ("_%d"%turb_seed) + ".hdf5"
-    filename = filename.replace("+","").replace('e0','e')
-    filename = "".join(filename.split())
 
 mgas = np.repeat(M_gas/N_gas, N_gas)
 
 if turb_type=='full':
-
-    ft = h5py.File("/panfs/ds08/hopkins/mgrudic/turb/supersonic256/snapshot_%s_c.hdf5"%(str(turb_seed).zfill(3)))
+    ft = h5py.File("/panfs/ds08/hopkins/mgrudic/turb/supersonic128/snapshot_%s.hdf5"%(str(seed).zfill(3)), 'r')
 
 #    ft = h5py.File("/panfs/ds08/hopkins/mgrudic/turb/nomhd/snapshot_002_c.hdf5")
     x = np.float64(np.array(ft["PartType0"]["Coordinates"]))-0.5
     Ns = len(x)
+
     r = np.sum(x**2,axis=1)**0.5
+    if sinkbox:
+        subset = np.ones_like(r, dtype=np.bool)
+        N_gas = Ns
+        mgas = np.repeat(M_gas/N_gas, N_gas)
+        res_effective = int(N_gas**(1.0/3.0)+0.5)
+    else:
+        subset = r < 0.5
     if "MagneticField" in ft["PartType0"].keys():
-        B = np.float64(np.array(ft["PartType0"]["MagneticField"]))[r<0.5]
+        B = np.float64(np.array(ft["PartType0"]["MagneticField"]))[subset]
     else:
         B = 0*x
 
-    v = np.float64(np.array(ft["PartType0"]["Velocities"]))[r<0.5]
-    h = np.float64(np.array(ft["PartType0"]["SmoothingLength"]))[r<0.5]
-    m = np.float64(np.array(ft["PartType0"]["Masses"]))[r<0.5]
-    x = x[r<0.5]
-    xchoice = np.random.choice(np.arange(len(x)),size=N_gas,replace=False)
-#    h *= (float(Ns)/N_gas)**(1./3)
-#    plasma_beta = (0.5*np.sum(m*np.sum(v**2,axis=1)))/np.sum(np.sum(B**2,axis=1)*(4*np.pi/3*h**3/32)/(8*np.pi))
+    v = np.float64(np.array(ft["PartType0"]["Velocities"]))[subset]
+    h = np.float64(np.array(ft["PartType0"]["SmoothingLength"]))[subset]
+    m = np.float64(np.array(ft["PartType0"]["Masses"]))[subset]
+
+    x = x[subset]
+    if sinkbox:
+        xchoice = np.arange(len(x))
+    else:
+        xchoice = np.random.choice(np.arange(len(x)),size=N_gas,replace=False)
+
     uB = np.sum(np.sum(B*B, axis=1) * 4*np.pi/3 *h**3 /32 * 3.09e21**3)* 0.03979 *5.03e-54
     plasma_beta = 0.5*np.sum(m*np.sum(v**2,axis=1))/uB
-    print(plasma_beta)
+
     x, v, B, h, m = x[xchoice], v[xchoice], B[xchoice], h[xchoice], m[xchoice]
     
     x = x*2*R
@@ -195,9 +209,9 @@ else:
     if turb_type=='gaussian':
 #        if turb_path is not 'none': # this is for saving turbulent fields we have already generated
         if not os.path.exists(turb_path): os.makedirs(turb_path)
-        fname = turb_path + "/vturb%d_sol%g_seed%d.npy"%(minmode,turb_sol, turb_seed)
+        fname = turb_path + "/vturb%d_sol%g_seed%d.npy"%(minmode,turb_sol, seed)
         if not os.path.isfile(fname):
-            vt = TurbField(minmode=minmode, sol_weight=turb_sol, seed=turb_seed)
+            vt = TurbField(minmode=minmode, sol_weight=turb_sol, seed=seed)
 
             nmin, nmax = vt.shape[-1]// 4, 3*vt.shape[-1]//4
 
@@ -211,15 +225,15 @@ else:
         for i in range(3):
             v.append(interpolate.interpn((xgrid,xgrid,xgrid),vt[i,:,:,:],x))
         v = np.array(v).T
-
+        
 #x += np.random.normal(size=(N_gas,3))*R/20
         
 Mr = M_BH + mgas.cumsum()
-ugrav = G * np.sum(Mr/ r * mgas)
-#print(ugrav)
-#phi = Potential(x, mgas, G=G)
-#ugrav = np.abs(phi*mgas).sum()/2
-#print(ugrav)
+if sinkbox:
+    ugrav= G * M_gas**2 / R
+else:
+    ugrav = G * np.sum(Mr/ r * mgas)
+
 E_rot = spin * ugrav
 I_z = np.sum(mgas * (x[:,0]**2+x[:,1]**2))
 omega = (2*E_rot/I_z)**0.5
@@ -248,9 +262,12 @@ x = r[:,np.newaxis]*np.c_[np.cos(phi)*np.sin(theta), np.sin(phi)*np.sin(theta), 
 
 #print(h)
 if turb_type=='full':
-    import meshoid
-    M = meshoid.meshoid(x,mgas)
-    rho, h = M.Density(), M.SmoothingLength()
+    if not sinkbox:
+        import meshoid
+        M = meshoid.meshoid(x,mgas)
+        rho, h = M.Density(), M.SmoothingLength()
+    else:
+        rho = (32*mgas/(4*np.pi/3 * h**3))
     uB = np.sum(np.sum(B*B, axis=1) * 4*np.pi/3 *h**3 /32 * 3.09e21**3)* 0.03979 *5.03e-54
     beta = np.sum(0.5*mgas*np.sum(v**2,axis=1))/uB
     B *= np.sqrt(beta/plasma_beta)
@@ -293,9 +310,27 @@ if turb_type!='full':
     if warmgas: rho[-N_warm:] /= 1000
     h = (32*mgas/rho)**(1./3)
 
-if arguments["--boxsize"] is not None or arguments["--warmgas"]: x += boxsize/2
-#print(B,h)
+if (arguments["--boxsize"] is not None or arguments["--warmgas"]) or sinkbox: x += boxsize/2
+
+if sinkbox:
+    m_min = M_gas/N_gas * 10
+    m_max = sinkbox/1e10
+    if sinkbox < m_min: print("Maximum sink mass is less than the minimum of 10 times the gas mass resolution. Increase resolution or implement a different sampling scheme.")
+
+    N_sinks = int(round(m_max/m_min))
+
+    m_sinks = (1./m_min - (1/m_min - 1/m_max) * np.random.rand(N_sinks))**-1. # randomly sample from M^-2 mass function between M_max and M_min
+    x_sinks = np.random.rand(N_sinks,3)*boxsize # random coordinates
+    v_sinks = np.random.normal(size=(N_sinks,3)) * np.sum(v**2,axis=1).mean()**0.5 # random velocities equal to RMS gas velocity        
+
+
 print("Writing snapshot...")
+
+if filename is None:
+    filename = "M%3.2g_"%(1e10*M_gas) + ("MBH%g_"%(1e10*M_BH) if M_BH>0 else "") + "R%g_S%g_T%g_B%g_Res%d_n%d_sol%g"%(R*1e3,spin,turbulence,magnetic_field,res_effective,minmode,turb_sol) +  ("_%d"%seed) + ".hdf5"
+    filename = filename.replace("+","").replace('e0','e')
+    filename = "".join(filename.split())
+
 F=h5py.File(filename, 'w')
 F.create_group("PartType0")
 F.create_group("Header")
@@ -313,11 +348,12 @@ F["PartType0"].create_dataset("Density", data=rho*1e10/mass_unit/(1000/length_un
 F["PartType0"].create_dataset("SmoothingLength", data=h*1000/length_unit)
 if magnetic_field > 0.0:
     F["PartType0"].create_dataset("MagneticField", data=B/B_unit)
-if M_BH > 0:
+if sinkbox:
     F.create_group("PartType5")
-    F["PartType5"].create_dataset("Masses", data=[M_BH*1e10/mass_unit,])
-    F["PartType5"].create_dataset("Coordinates", data=[[0,0,0]])
-    F["PartType5"].create_dataset("Velocities", data=[[0,0,0]])
+    F["PartType5"].create_dataset("Masses", data=m_sinks)
+    F["PartType5"].create_dataset("Coordinates", data=x_sinks)
+    F["PartType5"].create_dataset("Velocities", data=v_sinks)
+    F["PartType5"].create_dataset("ParticleIDs", data=np.arange(N_gas+N_warm, N_gas+N_warm+N_sinks))
 F.close()
 
 if GMC_units:   
