@@ -29,7 +29,7 @@ Options:
    --mass_unit=<msun>   Unit of mass in M_sun [default: 1e10]
    --v_unit=<m/s>       Unit of velocity in m/s [default: 1000]
    --sinkbox=<f>        Setup for light seeds in a turbulent box problem - parameter is the maximum seed mass in solar [default: 0.0]
-   --turb_seed=<N>           Random seed for turbulence initialization [default: 42]
+   --turb_seed=<N>      Random seed for turbulence initialization [default: 42]
    --GMC_units          Sets units appropriate for GMCs, so pc, m/s, m_sun, tesla
 """
 
@@ -321,7 +321,7 @@ if sinkbox:
 
     m_sinks = (1./m_min - (1/m_min - 1/m_max) * np.random.rand(N_sinks))**-1. # randomly sample from M^-2 mass function between M_max and M_min
     x_sinks = np.random.rand(N_sinks,3)*boxsize # random coordinates
-    v_sinks = np.random.normal(size=(N_sinks,3)) * np.sum(v**2,axis=1).mean()**0.5 # random velocities equal to RMS gas velocity        
+    v_sinks = np.random.normal(size=(N_sinks,3)) * (np.sum(v**2,axis=1).mean() / 3)**0.5 # random velocities equal to RMS gas velocity        
 
 
 print("Writing snapshot...")
