@@ -9,7 +9,7 @@
 
 %----  Relevant files (filenames and directories)
 InitCondFile  NAME
-OutputDir     output
+OutputDir     OUTFOLDER
 
 %---- File formats (input and output)
 ICFormat    3  % 1=unformatted (gadget) binary, 3=hdf5, 4=cluster
@@ -30,7 +30,7 @@ TimeBetSnapshot         DTSNAP  % time between (if OutputListOn=0), code units
 TimeBetStatistics       DTSNAP % time between additional statistics (e.g. energy)
 
 %---- CPU run-time and checkpointing time-limits
-TimeLimitCPU            86400  % in seconds
+TimeLimitCPU            172800  % in seconds
 CpuTimeBetRestartFile   7200  	% in seconds 
 ResubmitOn              0 
 ResubmitCommand         my-scriptfile 
@@ -47,8 +47,8 @@ MinSizeTimestep         1.0e-15 % set this very low, or get the wrong answer
 %---- System of units
 UnitLength_in_cm            3.085678e18     % 1.0pc
 UnitMass_in_g               1.989e33          % solar mass
-UnitVelocity_in_cm_per_s    1.0e2           % 1 km/sec
-UnitMagneticField_in_gauss  1e4               % 1 tesla
+UnitVelocity_in_cm_per_s    1.0e2           % 1 m/sec
+UnitMagneticField_in_gauss  1.0               % 1 gauss
 GravityConstantInternal     0                % calculated by code if =0
 
 %---- Cosmological parameters
