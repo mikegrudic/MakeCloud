@@ -279,9 +279,9 @@ Tillotson_EOS_params_Y0         8.5e10  % hugoniot elastic limit in [erg/cm^3]  
 
 
 %--- Developer-Mode Parameters (usually hard-coded, but set manually if DEVELOPER_MODE is on) --------
-ErrTolTheta                  0.7    % 0.7=standard
+ErrTolTheta                  0.5    % 0.7=standard
 ErrTolForceAcc               0.0025 % 0.0025=standard
-ErrTolIntAccuracy        0.01  % <0.02
+ErrTolIntAccuracy        0.001  % <0.02
 CourantFac               0.1    % <0.20
 MaxRMSDisplacementFac    0.125  % <0.25
 MaxNumNgbDeviation      0.05    % <<DesNumNgb (values<1 are fine)

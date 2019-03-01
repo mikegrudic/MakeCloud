@@ -13,7 +13,7 @@ Options:
    --MBH=<msun>         Mass of the central black hole [default: 0.0]
    --spin=<f>           Spin parameter: fraction of binding energy in solid-body rotation [default: 0.0]
    --turb_type=<s>      Type of initial turbulent velocity (and possibly density field): 'gaussian' or 'full' [default: gaussian]
-   --turb_sol=<f>       Fraction of turbulence in solenoidal modes, used when turb_type is 'gaussian' [default: 1.0]
+   --turb_sol=<f>       Fraction of turbulence in solenoidal modes, used when turb_type is 'gaussian' [default: 0.5]
    --alpha_turb=<f>     Turbulent energy as a fraction of the binding energy [default: 1.]
    --bturb=<f>          Magnetic energy as a fraction of the binding energy [default: 0.01]
    --minmode=<N>        Minimum populated turbulent wavenumber for Gaussian initial velocity field, in units of pi/R [default: 2]
@@ -362,8 +362,8 @@ if GMC_units:
     delta_m = M_gas*1e10/mass_unit/N_gas
     rhocrit = 421/ delta_m**2
     rho_avg = 3*M_gas*1e10/(R*1e3)**3/(4*np.pi)
-    softening = (delta_m/rhocrit)**(1./3)
-    ncrit = 8920 / delta_m**2
+    softening = 0.000173148 # 100AU/2.8 #(delta_m/rhocrit)**(1./3)
+    ncrit = 1.0e11 #8920 / delta_m**2
     tff = 8.275e-3 * rho_avg**-0.5
 #    print(tff)
 #   ncrit=(360684.5/((M_gas*1e10/mass_unit/N_gas)**2))
