@@ -194,8 +194,8 @@ else:
 
     x, r = x/r.max(), r/r.max()
 #    rnew = r * R
-#    rho_form = lambda r: 1. #change this function to get a different radial density profile; normalization does not matter as long as rmin and rmax are properly specified
-    rho_form = lambda r: (r+R/1000)**-1.5
+    rho_form = lambda r: 1. #change this function to get a different radial density profile; normalization does not matter as long as rmin and rmax are properly specified
+#    rho_form = lambda r: (r+R/1000)**-1.5
     rmin = 0.
     rho_norm = quad(lambda r: rho_form(r) * 4 * np.pi * r**2, rmin, R)[0]
     rho = lambda r: rho_form(r) / rho_norm
