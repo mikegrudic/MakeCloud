@@ -194,8 +194,8 @@ else:
 
     x, r = x/r.max(), r/r.max()
 #    rnew = r * R
-#    rho_form = lambda r: 1. #change this function to get a different radial density profile; normalization does not matter as long as rmin and rmax are properly specified
-    rho_form = lambda r: (r+R/1000)**-1.5
+    rho_form = lambda r: 1. #change this function to get a different radial density profile; normalization does not matter as long as rmin and rmax are properly specified
+#    rho_form = lambda r: (r+R/1000)**-1.5
     rmin = 0.
     rho_norm = quad(lambda r: rho_form(r) * 4 * np.pi * r**2, rmin, R)[0]
     rho = lambda r: rho_form(r) / rho_norm
@@ -272,7 +272,8 @@ if turb_type=='full':
     beta = np.sum(0.5*mgas*np.sum(v**2,axis=1))/uB
     B *= np.sqrt(beta/plasma_beta)
     uB = np.sum(np.sum(B*B, axis=1) * 4*np.pi/3 *h**3 /32 * 3.09e21**3)* 0.03979 *5.03e-54
-
+    
+print(x.mean(axis=0))
 u = np.ones_like(mgas)*0.101/2.0 #/2 needed because it is molecular
 if warmgas:
     # assuming 10K vs 10^4K gas: factor of ~10^3 density contrast
@@ -372,7 +373,7 @@ if GMC_units:
 #    print "dx_min: ", ((np.sum(mgas)*1e10/mass_unit/(2.45e8*ncrit/1e10))**(1/3.0)), "T10^(-1) NJ(^2/3) mu^(4/3) pc"
     paramsfile = str(open(os.path.realpath(__file__).replace("MakeCloud.py","params.txt"), 'r').read())
 
-    replacements = {"NAME": "../../IC/"+filename.replace(".hdf5",""), "DTSNAP": tff/30, "SOFTENING": softening, "GASSOFT": 2.0e-8, "TMAX": tff*5, "RHOMAX": ncrit, "BOXSIZE": 10*R*1e3/length_unit, "OUTFOLDER": "output"}
+    replacements = {"NAME": filename.replace(".hdf5",""), "DTSNAP": tff/30, "SOFTENING": softening, "GASSOFT": 2.0e-8, "TMAX": tff*5, "RHOMAX": ncrit, "BOXSIZE": boxsize*1000/length_unit, "OUTFOLDER": "output"}
 
     print(replacements["NAME"])
 #    print(paramsfile)
