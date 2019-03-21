@@ -7,7 +7,7 @@ Usage: MakeCloud_Bondi.py [options]
 
 Options:                                                                       
    -h --help                Show this screen.
-   --R_over_Rsonic=<f>                 Outer radius of the cloud in Rsonic [default: 16.0]
+   --R_over_Rsonic=<f>      Outer radius of the cloud in Rsonic [default: 16.0]
    --Rs_over_Rsonic=<f>     Ratio of sink radius to sonic radius [default: 1.0]
    --rho_gas=<msun>         Density of the gas around the sink at inifinity, in msolar/pc^3 [default: 0.01]
    --filename=<name>        Name of the IC file to be generated
@@ -19,9 +19,10 @@ Options:
    --v_unit=<m/s>           Unit of velocity in m/s [default: 1000]
    --GMC_units              Sets units appropriate for GMCs, so pc, m/s, m_sun, tesla
    --localdir               Changes directory defaults assuming all files are used from local directory.
+   --R_cut_out=<f>          Distance around the sink to be left empty in pc [default: 0.0001]
 """
 
-
+from __future__ import print_function
 import numpy as np
 from scipy import fftpack, interpolate, ndimage
 from scipy.integrate import quad, odeint, solve_bvp
@@ -49,6 +50,7 @@ Rs_over_Rsonic = float(arguments["--Rs_over_Rsonic"])
 rho_gas = float(arguments["--rho_gas"])/(mass_unit/(length_unit**3.0)) #msolar/pc^3 to code units
 N_gas = int(float(arguments["--N"])+0.5)
 M_BH = float(arguments["--MBH"])/mass_unit #mstar to code units
+R_cut_out = float(arguments["--R_cut_out"])/length_unit
 filename = arguments["--filename"]
 localdir = arguments["--localdir"]
 
@@ -67,9 +69,9 @@ rsonic_Bondi = G*M_BH/2.0/(csound**2)/length_unit
 msonic=4.0*np.pi/3.0*rho_gas*(rsonic_Bondi**3.0)
 Rsink = Rs_over_Rsonic*rsonic_Bondi
 R = R_over_Rsonic*rsonic_Bondi
-print "Radius set as %g pc"%(R*length_unit)
+print( "Radius set as %g pc"%(R*length_unit))
 if arguments["--boxsize"] is not None:
-#    print(arguments["--boxsize"])
+#    print((arguments["--boxsize"]))
     boxsize = float(arguments["--boxsize"])*length_unit
 else:
     boxsize = 10*R
@@ -103,43 +105,50 @@ h = (32*mgas/rho)**(1./3)
 vr = np.interp(int_mass, data_mass_in_r, data_vr) #interpolate the velocity
 v = -x; v[:,0] *= vr/newr; v[:,1] *= vr/newr; v[:,2] *= vr/newr;
 #print chek data
-print 'mdot avg: %g std %g'%(np.mean(data_density*data_r*data_r*data_vr*np.pi*4.0),np.std(data_density*data_r*data_r*data_vr*np.pi*4.0))
-print 'density'
-print data_density
-print 'density_alt'
+print( 'mdot avg: %g std %g'%(np.mean(data_density*data_r*data_r*data_vr*np.pi*4.0),np.std(data_density*data_r*data_r*data_vr*np.pi*4.0)))
+print( 'density')
+print( data_density)
+print( 'density_alt')
 altdens=np.diff(data_mass_in_r)/np.diff(data_r)/(4.0*np.pi*data_r[1:]*data_r[1:])
-print altdens
-print 'relative'
-print data_density[1:]/altdens
+print( altdens)
+print( 'relative')
+print( data_density[1:]/altdens)
 #Calculate NEWSNK parameters
-print 'Calculating t_radial...'
+print( 'Calculating t_radial...')
 for z in [0.125,0.5,1.0,2.0,4.0]:
-    print '\t At %g Rsonic = %g pc'%(z,(rsonic_Bondi*z*length_unit))
+    print( '\t At %g Rsonic = %g pc'%(z,(rsonic_Bondi*z*length_unit)))
     ind=(newr<=(z*rsonic_Bondi))
-    print '\t mass enclosed %g in msun'%(np.sum(mgas[ind])*mass_unit)
+    print( '\t mass enclosed %g in msun'%(np.sum(mgas[ind])*mass_unit))
     #tot_weight=np.sum(mgas[ind]/rho[ind])
     tot_weight=4.0/3.0*np.pi*np.max(newr[ind])**3
     x_dot_v=np.sum(x*v,axis=1)
     t_rad=-np.sum(mgas[ind])*tot_weight/np.sum(4.0*np.pi*(x_dot_v*newr*mgas)[ind])
-    print '\t t_rad=%g in code units'%(t_rad)
-    print '\t m/t_rad=%g in code units'%(np.sum(mgas[ind])/t_rad)
+    print( '\t t_rad=%g in code units'%(t_rad))
+    print( '\t m/t_rad=%g in code units'%(np.sum(mgas[ind])/t_rad))
     #from IC
     ind=np.arange(len(data_r))[(data_r<=(z*rsonic_Bondi))]
     ind2=np.argmax(data_r[ind])
     dm_ic=np.diff(data_mass_in_r)
     t_rad_IC=(data_mass_in_r[ind2]*(4.0/3.0*np.pi)*data_r[ind2]**3)/(4.0*np.pi*np.sum(data_r[ind]*data_r[ind]*data_vr[ind]*dm_ic[ind]))
-    print '\t t_rad_IC=%g in code units'%(t_rad_IC)
-    print '\t m_IC/t_rad_IC=%g in code units'%(data_mass_in_r[ind2]/t_rad_IC)
+    print( '\t t_rad_IC=%g in code units'%(t_rad_IC))
+    print( '\t m_IC/t_rad_IC=%g in code units'%(data_mass_in_r[ind2]/t_rad_IC))
 #Calculate flux
-print 'Calculating density ...'
+print( 'Calculating density ...')
 dr=np.diff(newr)
 rho_alt=(mgas[1:]/dr)/(4.0*np.pi*(newr[1:]**2))
-print rho
-print rho_alt
-print rho[1:]/rho_alt
+print( rho)
+print( rho_alt)
+print( rho[1:]/rho_alt)
+#keep the one sthat are not too close
+ind=newr>R_cut_out
+print("Removing %d particles that are inside R_cut_out of %g"%((N_gas-np.sum(ind)),R_cut_out))
+N_gas=np.sum(ind)
+M_gas=np.sum(mgas[ind])
 
-    
-    
+NGBvals=[1,2,5,10,20,50,100,200,400,800,1600]
+for ngb in NGBvals:
+    print("Radius at Ngbfactor of %g is %g pc"%(ngb,newr[32*ngb]))
+
 #center coordinates
 x = x + boxsize/2.0
 print("Writing snapshot...")
@@ -157,13 +166,13 @@ F["Header"].attrs["NumPart_Total"] = [N_gas,0,0,0,0,(1 if M_BH>0 else 0)]
 F["Header"].attrs["MassTable"] = [M_gas/N_gas,0,0,0,0, M_BH]
 F["Header"].attrs["BoxSize"] = boxsize
 F["Header"].attrs["Time"] = 0.0
-F["PartType0"].create_dataset("Masses", data=mgas)
-F["PartType0"].create_dataset("Coordinates", data=x)
-F["PartType0"].create_dataset("Velocities", data=v)
+F["PartType0"].create_dataset("Masses", data=mgas[ind])
+F["PartType0"].create_dataset("Coordinates", data=x[ind,:])
+F["PartType0"].create_dataset("Velocities", data=v[ind,:])
 F["PartType0"].create_dataset("ParticleIDs", data=np.arange(N_gas)+1)
-F["PartType0"].create_dataset("InternalEnergy", data=u)
-F["PartType0"].create_dataset("Density", data=rho)
-F["PartType0"].create_dataset("SmoothingLength", data=h)
+F["PartType0"].create_dataset("InternalEnergy", data=u[ind])
+F["PartType0"].create_dataset("Density", data=rho[ind])
+F["PartType0"].create_dataset("SmoothingLength", data=h[ind])
 if M_BH>0:
     F.create_group("PartType5")
     F["PartType5"].create_dataset("Masses", data=np.array([M_BH]))
@@ -179,12 +188,12 @@ if GMC_units:
     delta_m = M_gas/N_gas
     rhocrit = 421/ delta_m**2
     rho_avg = 3*M_gas/(R**3)/(4*np.pi)
-    softening = (delta_m/rhocrit)**(1./3)
-    ncrit = 8920 / delta_m**2
+    softening = 0.000173148 # 100AU/2.8 #(delta_m/rhocrit)**(1./3)
+    ncrit = 1.0e11 #8920 / delta_m**2
     tff = 8.275e-3 * rho_avg**-0.5
     mdot_Bondi = np.exp(1.5)*np.pi*(G**2)*(M_BH**2)*rho_gas/(csound**3)
     tend_Bondi = 2.0*(2.0*G*M_BH/(csound**3))
-    print 'Bondi accretion parameters: \n \t Mgas:\t\t', M_gas, '\n \t Mdot:\t\t',mdot_Bondi, '\n \t Rsonic:\t',rsonic_Bondi,'\n \t Rsink:\t\t',Rsink, '\n \t t_end:\t\t',tend_Bondi, '\n \t m_acc:\t\t',tend_Bondi*mdot_Bondi, '\n \t f_acc:\t\t',tend_Bondi*mdot_Bondi
+    print( 'Bondi accretion parameters: \n \t Mgas:\t\t', M_gas, '\n \t Mdot:\t\t',mdot_Bondi, '\n \t Rsonic:\t',rsonic_Bondi,'\n \t Rsink:\t\t',Rsink, '\n \t t_end:\t\t',tend_Bondi, '\n \t m_acc:\t\t',tend_Bondi*mdot_Bondi, '\n \t f_acc:\t\t',tend_Bondi*mdot_Bondi)
     paramsfile = str(open(os.path.realpath(__file__).replace("MakeCloud_Bondi.py","params.txt"), 'r').read())
 
     replacements = {"NAME": "../ICs/"+filename.replace(".hdf5",""), "DTSNAP": tend_Bondi/200, "SOFTENING": softening, "GASSOFT": 2.0e-8, "TMAX": tend_Bondi, "RHOMAX": ncrit, "BOXSIZE": boxsize, "OUTFOLDER": "output_%g"%(Rs_over_Rsonic)}

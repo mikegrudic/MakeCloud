@@ -123,7 +123,7 @@ if GMC_units:
 
 if localdir:
     turb_path = "turb"
-    glass_path = "glass_256.npy"
+    glass_path = "glass.npy"
 
 if arguments["--boxsize"] is not None:
 #    print(arguments["--boxsize"])
