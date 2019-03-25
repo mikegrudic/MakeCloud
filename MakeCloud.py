@@ -31,6 +31,7 @@ Options:
    --sinkbox=<f>        Setup for light seeds in a turbulent box problem - parameter is the maximum seed mass in solar [default: 0.0]
    --turb_seed=<N>      Random seed for turbulence initialization [default: 42]
    --GMC_units          Sets units appropriate for GMCs, so pc, m/s, m_sun, tesla
+   --param_only         Just makes the parameters file, not the IC
 """
 
 
@@ -106,6 +107,7 @@ G = float(arguments["--G"])
 warmgas = arguments["--warmgas"]
 localdir = arguments["--localdir"]
 GMC_units = arguments["--GMC_units"]
+param_only = arguments["--param_only"]
 B_unit = float(arguments["--B_unit"])
 length_unit = float(arguments["--length_unit"])
 mass_unit = float(arguments["--mass_unit"])
@@ -135,6 +137,38 @@ else:
 
 res_effective = int(N_gas**(1.0/3.0)+0.5)
 phimode=float(arguments["--phimode"])
+
+if filename is None:
+    filename = "M%3.2g_"%(1e10*M_gas) + ("MBH%g_"%(1e10*M_BH) if M_BH>0 else "") + "R%g_S%g_T%g_B%g_Res%d_n%d_sol%g"%(R*1e3,spin,turbulence,magnetic_field,res_effective,minmode,turb_sol) +  ("_%d"%seed) + ".hdf5"
+    filename = filename.replace("+","").replace('e0','e')
+    filename = "".join(filename.split())
+    
+if GMC_units:   
+#    print "Cloud density: ", (np.sum(mgas)*1e10/mass_unit/(4.0/3.0*3.141*(R*1000/length_unit)**3)), " M_sun/pc^3", '   ',  (np.sum(mgas)*1e10/mass_unit/(4.0/3.0*3.141*(R*1000/length_unit)**3)/24532.3*1e6), " mu^(-1) cm^(-3)" 
+    #n_crit mased on assumption that dm=M_jeans, meaning that densest is still resolved by NJ particles
+    delta_m = M_gas*1e10/mass_unit/N_gas
+    rhocrit = 421/ delta_m**2
+    rho_avg = 3*M_gas*1e10/(R*1e3)**3/(4*np.pi)
+    softening = 0.000173148 # 100AU/2.8 #(delta_m/rhocrit)**(1./3)
+    ncrit = 1.0e11 #8920 / delta_m**2
+    tff = 8.275e-3 * rho_avg**-0.5
+#    print(tff)
+#   ncrit=(360684.5/((M_gas*1e10/mass_unit/N_gas)**2))
+    #print "n_crit assuming NJ*dm=M_jeans: ", ncrit ,"T10^3 NJ(^-2) mu^(-4) cm^(-3)", np.log10(ncrit)
+    #10^10 cm^-3 -> 2.45*10^8*mu*M_sun/pc^3, where mu is molecular weight
+#    print "dx_min: ", ((np.sum(mgas)*1e10/mass_unit/(2.45e8*ncrit/1e10))**(1/3.0)), "T10^(-1) NJ(^2/3) mu^(4/3) pc"
+    paramsfile = str(open(os.path.realpath(__file__).replace("MakeCloud.py","params.txt"), 'r').read())
+
+    replacements = {"NAME": "../../IC/"+filename.replace(".hdf5",""), "DTSNAP": tff/30, "SOFTENING": softening, "GASSOFT": 2.0e-8, "TMAX": tff*5, "RHOMAX": ncrit, "BOXSIZE": boxsize*1000/length_unit, "OUTFOLDER": "output"}
+
+    print(replacements["NAME"])
+#    print(paramsfile)
+    for k in replacements.keys():
+        paramsfile = paramsfile.replace(k, str(replacements[k])) 
+    open("params_"+filename.replace(".hdf5","")+".txt", "w").write(paramsfile)
+if param_only:
+    print('Parameters only run, exiting...')
+    exit()
 
 mgas = np.repeat(M_gas/N_gas, N_gas)
 
@@ -327,11 +361,6 @@ if sinkbox:
 
 print("Writing snapshot...")
 
-if filename is None:
-    filename = "M%3.2g_"%(1e10*M_gas) + ("MBH%g_"%(1e10*M_BH) if M_BH>0 else "") + "R%g_S%g_T%g_B%g_Res%d_n%d_sol%g"%(R*1e3,spin,turbulence,magnetic_field,res_effective,minmode,turb_sol) +  ("_%d"%seed) + ".hdf5"
-    filename = filename.replace("+","").replace('e0','e')
-    filename = "".join(filename.split())
-
 F=h5py.File(filename, 'w')
 F.create_group("PartType0")
 F.create_group("Header")
@@ -357,28 +386,6 @@ if sinkbox:
     F["PartType5"].create_dataset("ParticleIDs", data=np.arange(N_gas+N_warm, N_gas+N_warm+N_sinks))
 F.close()
 
-if GMC_units:   
-#    print "Cloud density: ", (np.sum(mgas)*1e10/mass_unit/(4.0/3.0*3.141*(R*1000/length_unit)**3)), " M_sun/pc^3", '   ',  (np.sum(mgas)*1e10/mass_unit/(4.0/3.0*3.141*(R*1000/length_unit)**3)/24532.3*1e6), " mu^(-1) cm^(-3)" 
-    #n_crit mased on assumption that dm=M_jeans, meaning that densest is still resolved by NJ particles
-    delta_m = M_gas*1e10/mass_unit/N_gas
-    rhocrit = 421/ delta_m**2
-    rho_avg = 3*M_gas*1e10/(R*1e3)**3/(4*np.pi)
-    softening = 0.000173148 # 100AU/2.8 #(delta_m/rhocrit)**(1./3)
-    ncrit = 1.0e11 #8920 / delta_m**2
-    tff = 8.275e-3 * rho_avg**-0.5
-#    print(tff)
-#   ncrit=(360684.5/((M_gas*1e10/mass_unit/N_gas)**2))
-    #print "n_crit assuming NJ*dm=M_jeans: ", ncrit ,"T10^3 NJ(^-2) mu^(-4) cm^(-3)", np.log10(ncrit)
-    #10^10 cm^-3 -> 2.45*10^8*mu*M_sun/pc^3, where mu is molecular weight
-#    print "dx_min: ", ((np.sum(mgas)*1e10/mass_unit/(2.45e8*ncrit/1e10))**(1/3.0)), "T10^(-1) NJ(^2/3) mu^(4/3) pc"
-    paramsfile = str(open(os.path.realpath(__file__).replace("MakeCloud.py","params.txt"), 'r').read())
 
-    replacements = {"NAME": filename.replace(".hdf5",""), "DTSNAP": tff/30, "SOFTENING": softening, "GASSOFT": 2.0e-8, "TMAX": tff*5, "RHOMAX": ncrit, "BOXSIZE": boxsize*1000/length_unit, "OUTFOLDER": "output"}
-
-    print(replacements["NAME"])
-#    print(paramsfile)
-    for k in replacements.keys():
-        paramsfile = paramsfile.replace(k, str(replacements[k])) 
-    open("params_"+filename.replace(".hdf5","")+".txt", "w").write(paramsfile)
     
 
