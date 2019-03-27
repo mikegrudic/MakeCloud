@@ -222,6 +222,7 @@ else:
             x = 2*(np.load("/home/mgrudic/glass.npy")-0.5)
     #Check again
     Nx = len(x); Nratio=Nx*np.pi*4/3 / 8/N_gas
+    #Nratio=0;Nx=0
     if Nratio < 1:
         #Constructing new glass
         n1d=int(np.floor((N_gas*8/(np.pi*4/3))**(0.3333))+2)
@@ -231,13 +232,13 @@ else:
         xv = np.linspace(-1.0, 1.0, n1d);Nx=n1d**3
         x=np.zeros([Nx,3])
         x1, x2, x3 = np.meshgrid(xv,xv,xv)
-        x[:,0]=x1.flatten(); x1=0; x[:,1]=x2.flatten(); x2=0; x[:,2]=x3.flatten(); x3=0;
+        x[:,0]=x1.flatten()+np.random.rand()*1e-8; x1=0; x[:,1]=x2.flatten()+np.random.rand()*1e-8; x2=0; x[:,2]=x3.flatten()+np.random.rand()*1e-8; x3=0;
+
     r = np.sum(x**2, axis=1)**0.5
     x = x[r.argsort()][:N_gas]
     x *= (float(Nx) / N_gas * 4*np.pi/3 / 8)**(1./3)*R
     
     r = np.sum(x**2,axis=1)**0.5
-
     x, r = x/r.max(), r/r.max()
 #    rnew = r * R
     rho_form = lambda r: 1. #change this function to get a different radial density profile; normalization does not matter as long as rmin and rmax are properly specified
@@ -245,13 +246,13 @@ else:
     rmin = 0.
     rho_norm = quad(lambda r: rho_form(r) * 4 * np.pi * r**2, rmin, R)[0]
     rho = lambda r: rho_form(r) / rho_norm
-
+    
     rnew = odeint(lambda rphys, r3: np.exp(r3)/(4*np.pi*np.exp(rphys)**3*rho(np.exp(rphys))), np.log(R), np.log(r[::-1]**3), atol=1e-12, rtol=1e-12)[::-1,0]
     rnew = np.exp(rnew)
     x=(x.T * rnew/r).T
     r = np.sum(x**2, axis=1)**0.5
     x, r = x[r.argsort()], r[r.argsort()]
-    
+
     if turb_type=='gaussian':
 #        if turb_path is not 'none': # this is for saving turbulent fields we have already generated
         if not os.path.exists(turb_path): os.makedirs(turb_path)
@@ -319,7 +320,7 @@ if turb_type=='full':
     B *= np.sqrt(beta/plasma_beta)
     uB = np.sum(np.sum(B*B, axis=1) * 4*np.pi/3 *h**3 /32 * 3.09e21**3)* 0.03979 *5.03e-54
     
-print(x.mean(axis=0))
+#print(x.mean(axis=0))
 u = np.ones_like(mgas)*0.101/2.0 #/2 needed because it is molecular
 if warmgas:
     # assuming 10K vs 10^4K gas: factor of ~10^3 density contrast
