@@ -32,7 +32,9 @@ Options:
    --turb_seed=<N>      Random seed for turbulence initialization [default: 42]
    --GMC_units          Sets units appropriate for GMCs, so pc, m/s, m_sun, tesla
    --param_only         Just makes the parameters file, not the IC
+   --fixed_ncrit=<f>    Fixes ncrit to a specific value [default: 0.0]
 """
+#Example:  python MakeCloud.py --M=1000 --N=1e7 --R=1.0 --localdir --GMC_units --warmgas --param_only
 
 
 import numpy as np
@@ -113,6 +115,7 @@ length_unit = float(arguments["--length_unit"])
 mass_unit = float(arguments["--mass_unit"])
 v_unit = float(arguments["--v_unit"])
 sinkbox = float(arguments["--sinkbox"])
+fixed_ncrit=float(arguments["--fixed_ncrit"])
 
 if sinkbox:
     turb_type = 'full'
@@ -150,7 +153,10 @@ if GMC_units:
     rhocrit = 421/ delta_m**2
     rho_avg = 3*M_gas*1e10/(R*1e3)**3/(4*np.pi)
     softening = 0.000173148 # 100AU/2.8 #(delta_m/rhocrit)**(1./3)
-    ncrit = 1.0e11 #8920 / delta_m**2
+    if fixed_ncrit:
+        ncrit=fixed_ncrit
+    else:
+        ncrit = 8920 / delta_m**2 #1.0e11
     tff = 8.275e-3 * rho_avg**-0.5
 #    print(tff)
 #   ncrit=(360684.5/((M_gas*1e10/mass_unit/N_gas)**2))
