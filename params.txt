@@ -48,7 +48,7 @@ MinSizeTimestep         1.0e-15 % set this very low, or get the wrong answer
 UnitLength_in_cm            3.085678e18     % 1.0pc
 UnitMass_in_g               1.989e33          % solar mass
 UnitVelocity_in_cm_per_s    1.0e2           % 1 m/sec
-UnitMagneticField_in_gauss  1.0               % 1 gauss
+UnitMagneticField_in_gauss  1.0e4               % 1 Tesla
 GravityConstantInternal     0                % calculated by code if =0
 
 %---- Cosmological parameters
@@ -215,7 +215,7 @@ BH_FluxMomentumFactor        0.0	    % multiply radiation pressure (BH_PHOTONMOM
 BAL_f_accretion              0.7        % fraction of gas swallowed by BH (BH_WIND options)
 BAL_v_outflow                100.	    % velocity (km/s) of BAL outflow (BH_WIND options)
 BAL_internal_temperature     1.0e4      % internal temperature (K) of BAL outflow (BH_WIND_SPAWN)
-BAL_wind_particle_mass       1.e-10     % mass of 'virtual wind particles' in code units (BH_WIND_SPAWN)
+BAL_wind_particle_mass       WIND_PART_MASS     % mass of 'virtual wind particles' in code units (BH_WIND_SPAWN)
 
 
 %-------------------------------------------------------------------------

@@ -152,7 +152,7 @@ if GMC_units:
     delta_m = M_gas*1e10/mass_unit/N_gas
     rhocrit = 421/ delta_m**2
     rho_avg = 3*M_gas*1e10/(R*1e3)**3/(4*np.pi)
-    softening = 0.000173148 # 100AU/2.8 #(delta_m/rhocrit)**(1./3)
+    softening = 0.0000173148 # 10AU/2.8 #(delta_m/rhocrit)**(1./3)
     if fixed_ncrit:
         ncrit=fixed_ncrit
     else:
@@ -165,7 +165,7 @@ if GMC_units:
 #    print "dx_min: ", ((np.sum(mgas)*1e10/mass_unit/(2.45e8*ncrit/1e10))**(1/3.0)), "T10^(-1) NJ(^2/3) mu^(4/3) pc"
     paramsfile = str(open(os.path.realpath(__file__).replace("MakeCloud.py","params.txt"), 'r').read())
 
-    replacements = {"NAME": "../../IC/"+filename.replace(".hdf5",""), "DTSNAP": tff/30, "SOFTENING": softening, "GASSOFT": 2.0e-8, "TMAX": tff*5, "RHOMAX": ncrit, "BOXSIZE": boxsize*1000/length_unit, "OUTFOLDER": "output"}
+    replacements = {"NAME": "../../IC/"+filename.replace(".hdf5",""), "DTSNAP": tff/30, "SOFTENING": softening, "GASSOFT": 2.0e-8, "TMAX": tff*5, "RHOMAX": ncrit, "BOXSIZE": boxsize*1000/length_unit, "OUTFOLDER": "output", "WIND_PART_MASS": delta_m/10 }
 
     print(replacements["NAME"])
 #    print(paramsfile)
