@@ -218,27 +218,15 @@ if turb_type=='full':
     #B /= (0.5/(2*R))**1.5
     r = np.sum(x**2,axis=1)**0.5
 else:
-    x = 2*(np.load(glass_path)-0.5)
+    x = np.load(glass_path)
     Nx = len(x)
-    if len(x)*np.pi*4/3 / 8 < N_gas:
-        print("Default glass too small (N=%d while N_gas=%d), trying alternative"%(Nx,N_gas))
-        if localdir:
-            x = 2*(np.load("glass.npy")-0.5)
-        else:
-            x = 2*(np.load("/home/mgrudic/glass.npy")-0.5)
-    #Check again
-    Nx = len(x); Nratio=Nx*np.pi*4/3 / 8/N_gas
-    #Nratio=0;Nx=0
-    if Nratio < 1:
-        #Constructing new glass
-        n1d=int(np.floor((N_gas*8/(np.pi*4/3))**(0.3333))+2)
-        if (n1d % 2 != 0):
-            n1d+=1 #to avoid odd numbers which would put a particle at the center
-        print("Saved glasses are too small (N=%d while N_gas=%d), constructing new glass with %d^3 particles..."%(Nx,N_gas,n1d))
-        xv = np.linspace(-1.0, 1.0, n1d);Nx=n1d**3
-        x=np.zeros([Nx,3])
-        x1, x2, x3 = np.meshgrid(xv,xv,xv)
-        x[:,0]=x1.flatten()+np.random.rand()*1e-8; x1=0; x[:,1]=x2.flatten()+np.random.rand()*1e-8; x2=0; x[:,2]=x3.flatten()+np.random.rand()*1e-8; x3=0;
+
+    while len(x)*np.pi*4/3 / 8 < N_gas:
+        print("Tessellating 8 copies of the glass file to get required particle number")
+        x = np.concatenate([x/2 + i * np.array([0.5,0,0]) + j * np.array([0,0.5,0]) + k * np.array([0, 0, 0.5]) for i in range(2) for j in range(2) for k in range(2)])
+        Nx = len(x)
+
+    x = 2*(x-0.5)
 
     r = np.sum(x**2, axis=1)**0.5
     x = x[r.argsort()][:N_gas]
