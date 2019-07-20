@@ -222,19 +222,23 @@ else:
     Nx = len(x)
 
     while len(x)*np.pi*4/3 / 8 < N_gas:
-        print("Tessellating 8 copies of the glass file to get required particle number")
+        print("Need %d particles, have %d. Tessellating 8 copies of the glass file to get required particle number"%(N_gas * 8 /(4*np.pi/3), len(x)))
         x = np.concatenate([x/2 + i * np.array([0.5,0,0]) + j * np.array([0,0.5,0]) + k * np.array([0, 0, 0.5]) for i in range(2) for j in range(2) for k in range(2)])
         Nx = len(x)
-
+    print("Glass loaded!")
     x = 2*(x-0.5)
-
-    r = np.sum(x**2, axis=1)**0.5
+    print("Computing radii...")
+    r = cdist(x, [np.zeros(3)])[:,0] #np.sum(x**2, axis=1)**0.5
+    print("Done! Sorting coordinates...")
     x = x[r.argsort()][:N_gas]
+    print("Done! Rescaling...")
     x *= (float(Nx) / N_gas * 4*np.pi/3 / 8)**(1./3)*R
-    
-    r = np.sum(x**2,axis=1)**0.5
+    print("Done! Recomupting radii...")
+    r = cdist(x, [np.zeros(3)])[:,0]
+#    r = np.sum(x**2,axis=1)**0.5
     x, r = x/r.max(), r/r.max()
 #    rnew = r * R
+    print("Doing density profile...")
     rho_form = lambda r: 1. #change this function to get a different radial density profile; normalization does not matter as long as rmin and rmax are properly specified
 #    rho_form = lambda r: (r+R/1000)**-1.5
     rmin = 0.
@@ -266,7 +270,7 @@ else:
         for i in range(3):
             v.append(interpolate.interpn((xgrid,xgrid,xgrid),vt[i,:,:,:],x))
         v = np.array(v).T
-        
+    print("Coordinates obtained!")
 #x += np.random.normal(size=(N_gas,3))*R/20
         
 Mr = M_BH + mgas.cumsum()

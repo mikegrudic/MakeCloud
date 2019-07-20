@@ -206,7 +206,7 @@ TimeBetOnTheFlyFoF           1.01       % time (in code units, e.g. scale-factor
 %--- accretion
 BlackHoleAccretionFactor     1.0	    % multiplier for mdot (relative to model)
 BlackHoleEddingtonFactor     1e100	    % fraction of eddington to cap (can be >1) 
-BlackHoleNgbFactor           5.0	    % multiplier for kernel neighbors for BH 
+BlackHoleNgbFactor           1.0	    % multiplier for kernel neighbors for BH 
 BlackHoleMaxAccretionRadius  BOXSIZE	    % max radius for BH neighbor search/accretion (code units)
 BlackHoleRadiativeEfficiency 5e-7        % radiative efficiency (for accretion and feedback)
 %--- feedback 
