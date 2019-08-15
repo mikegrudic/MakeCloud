@@ -196,7 +196,7 @@ CosmicRay_SNeFraction       0.1     % fraction of SNe ejecta kinetic energy into
 
 %-------------- Black Hole accretion & formation (BLACK_HOLES on)
 %--- formation/seeding  
-SeedBlackHoleMass            1.0e-15 	% initial mass (on-the-fly or single galaxy)
+SeedBlackHoleMass            BH_SEED_MASS    % initial mass (on-the-fly or single galaxy)
 SeedAlphaDiskMass            0.0        % initial mass in the alpha disk (BH_ALPHADISK_ACCRETION)
 SeedBlackHoleMinRedshift     2.0        % minimum redshift where new BH particles are seeded (lower-z ceases seeding)
 SeedBlackHoleMassSigma       0.5        % lognormal standard deviation (in dex) in initial BH seed masses
