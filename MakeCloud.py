@@ -33,6 +33,7 @@ Options:
    --GMC_units          Sets units appropriate for GMCs, so pc, m/s, m_sun, tesla
    --param_only         Just makes the parameters file, not the IC
    --fixed_ncrit=<f>    Fixes ncrit to a specific value [default: 0.0]
+   --makebox            Creates a second box IC of equivalent volume and mass to the cloud
 """
 #Example:  python MakeCloud.py --M=1000 --N=1e7 --R=1.0 --localdir --GMC_units --warmgas --param_only
 
@@ -115,6 +116,7 @@ length_unit = float(arguments["--length_unit"])
 mass_unit = float(arguments["--mass_unit"])
 v_unit = float(arguments["--v_unit"])
 sinkbox = float(arguments["--sinkbox"])
+makebox = arguments["--makebox"]
 fixed_ncrit=float(arguments["--fixed_ncrit"])
 
 if sinkbox:
@@ -158,6 +160,11 @@ if GMC_units:
     else:
         ncrit = 8920 / delta_m**2 #1.0e11
     tff = 8.275e-3 * rho_avg**-0.5
+    L = (4*np.pi*R**3/3)**(1./3) *1000/length_unit# volume-equivalent box size
+    vrms = (6/5 * G * M_gas / R)**0.5 * 1000 / v_unit
+    tcross = L/vrms
+
+    turbenergy = 0.019111097819633344*vrms**3/L # ST_Energy sets the dissipation rate of SPECIFIC energy ~ v^2 / (L/v) ~ v^3/L
 #    print(tff)
 #   ncrit=(360684.5/((M_gas*1e10/mass_unit/N_gas)**2))
     #print "n_crit assuming NJ*dm=M_jeans: ", ncrit ,"T10^3 NJ(^-2) mu^(-4) cm^(-3)", np.log10(ncrit)
@@ -165,13 +172,18 @@ if GMC_units:
 #    print "dx_min: ", ((np.sum(mgas)*1e10/mass_unit/(2.45e8*ncrit/1e10))**(1/3.0)), "T10^(-1) NJ(^2/3) mu^(4/3) pc"
     paramsfile = str(open(os.path.realpath(__file__).replace("MakeCloud.py","params.txt"), 'r').read())
 
-    replacements = {"NAME": "../../IC/"+filename.replace(".hdf5",""), "DTSNAP": tff/50, "SOFTENING": softening, "GASSOFT": 2.0e-8, "TMAX": tff*5, "RHOMAX": ncrit, "BOXSIZE": boxsize*1000/length_unit, "OUTFOLDER": "output", "WIND_PART_MASS": delta_m/10.0, "BH_SEED_MASS": delta_m/2.0 }
-
-    print(replacements["NAME"])
-#    print(paramsfile)
+    replacements = {"NAME": filename.replace(".hdf5",""), "DTSNAP": tff/50, "MAXTIMESTEP": tff/1000, "SOFTENING": softening, "GASSOFT": 2.0e-8, "TMAX": tff*5, "RHOMAX": ncrit, "BOXSIZE": boxsize*1000/length_unit, "OUTFOLDER": "output", "WIND_PART_MASS": delta_m/10.0, "BH_SEED_MASS": delta_m/2.0 , "TURBDECAY": tcross/2, "TURBENERGY": turbenergy, "TURBFREQ": tcross/20, "TURB_KMIN": int(100 * 2*np.pi/L)/100, "TURB_KMAX": int(100*4*np.pi/(L)+1)/100}
+    
     for k in replacements.keys():
         paramsfile = paramsfile.replace(k, str(replacements[k])) 
     open("params_"+filename.replace(".hdf5","")+".txt", "w").write(paramsfile)
+    if makebox:
+        replacements["NAME"] = filename.replace(".hdf5","_BOX")
+        replacements["BOXSIZE"] = L
+        paramsfile = str(open(os.path.realpath(__file__).replace("MakeCloud.py","params.txt"), 'r').read())
+        for k in replacements.keys():
+            paramsfile = paramsfile.replace(k, str(replacements[k]))         
+        open("params_"+filename.replace(".hdf5","")+"_BOX.txt", "w").write(paramsfile)
 if param_only:
     print('Parameters only run, exiting...')
     exit()
@@ -278,7 +290,7 @@ if sinkbox:
     ugrav= G * M_gas**2 / R
 else:
     ugrav = G * np.sum(Mr/ r * mgas)
-
+print(ugrav)
 E_rot = spin * ugrav
 I_z = np.sum(mgas * (x[:,0]**2+x[:,1]**2))
 omega = (2*E_rot/I_z)**0.5
@@ -383,7 +395,7 @@ F["Header"].attrs["Time"] = 0.0
 F["PartType0"].create_dataset("Masses", data=mgas*1e10/mass_unit)
 F["PartType0"].create_dataset("Coordinates", data=x*1000/length_unit)
 F["PartType0"].create_dataset("Velocities", data=v*1000/v_unit)
-F["PartType0"].create_dataset("ParticleIDs", data=np.arange(N_gas+N_warm)+(1 if M_BH>0 else 0))
+F["PartType0"].create_dataset("ParticleIDs", data=1+np.arange(N_gas+N_warm)+(1 if M_BH>0 else 0))
 F["PartType0"].create_dataset("InternalEnergy", data=u*(1000/v_unit)**2)
 F["PartType0"].create_dataset("Density", data=rho*1e10/mass_unit/(1000/length_unit)**3)
 F["PartType0"].create_dataset("SmoothingLength", data=h*1000/length_unit)
@@ -397,6 +409,19 @@ if sinkbox:
     F["PartType5"].create_dataset("ParticleIDs", data=np.arange(N_gas+N_warm, N_gas+N_warm+N_sinks))
 F.close()
 
-
-    
-
+if makebox:
+    F=h5py.File(filename.replace(".hdf5","_BOX.hdf5"), 'w')
+    F.create_group("PartType0")
+    F.create_group("Header")
+    F["Header"].attrs["NumPart_ThisFile"] = [N_gas,0,0,0,0,0]
+    F["Header"].attrs["NumPart_Total"] = [N_gas,0,0,0,0,0]
+    F["Header"].attrs["MassTable"] = [M_gas/N_gas*1e10/mass_unit,0,0,0,0,0]
+    F["Header"].attrs["BoxSize"] = (4 * np.pi * R**3 / 3)**(1./3)*1000 / length_unit
+    F["Header"].attrs["Time"] = 0.0
+    F["PartType0"].create_dataset("Masses", data=mgas[:N_gas]*1e10/mass_unit)
+    F["PartType0"].create_dataset("Coordinates", data = F["Header"].attrs["BoxSize"] * np.random.rand(N_gas,3))
+    F["PartType0"].create_dataset("Velocities", data=np.zeros((N_gas,3)))
+    F["PartType0"].create_dataset("ParticleIDs", data=1+np.arange(N_gas))
+    if magnetic_field > 0.0:
+        F["PartType0"].create_dataset("MagneticField", data=B[:N_gas]/B_unit)
+    F.close()

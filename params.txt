@@ -40,7 +40,7 @@ TimeBegin   0.0    % Beginning of the simulation
 TimeMax     TMAX    % End of the simulation
 
 %---- Maximum and minimum timesteps allowed
-MaxSizeTimestep         0.005   % in code units, set for your problem
+MaxSizeTimestep         MAXTIMESTEP  % in code units, set for your problem
 MinSizeTimestep         1.0e-15 % set this very low, or get the wrong answer
 
 
@@ -236,13 +236,13 @@ GrackleDataFile		     CloudyData_UVB=HM2012.h5
 ST_decay       TURBDECAY	    % decay time for driving-mode phase correlations
 ST_energy      TURBENERGY   % energy of driving-scale modes: sets norm of turb
 ST_DtFreq      TURBFREQ    % time interval for driving updates (set by hand)
-ST_Kmin        6.27     % minimum driving-k: should be >=2.*M_PI/All.BoxSize
-ST_Kmax        18.85    % maximum driving-k: set to couple times Kmin or more if cascade desired
+ST_Kmin        TURB_KMIN     % minimum driving-k: should be >=2.*M_PI/All.BoxSize
+ST_Kmax        TURB_KMAX    % maximum driving-k: set to couple times Kmin or more if cascade desired
 ST_SolWeight   1.0      % fractional wt of solenoidal modes (wt*curl + (1-wt)*div)
 ST_AmplFac     1.0      % multiplies turb amplitudes
-ST_SpectForm   1        % driving pwr-spec: 0=Ek~const; 1=sharp-peak at kc; 2=Ek~k^(-5/3); 3=Ek~k^-2
+ST_SpectForm   3        % driving pwr-spec: 0=Ek~const; 1=sharp-peak at kc; 2=Ek~k^(-5/3); 3=Ek~k^-2
 ST_Seed        42       % random number seed for modes (so you can reproduce it)
-IsoSoundSpeed  1.0      % initializes gas sound speed in box to this value
+IsoSoundSpeed  200.      % initializes gas sound speed in box to this value
 TimeBetTurbSpectrum 0.5 % time (code units) between evaluations of turb pwrspec
 
 
