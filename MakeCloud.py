@@ -161,7 +161,7 @@ if GMC_units:
         ncrit = 8920 / delta_m**2 #1.0e11
     tff = 8.275e-3 * rho_avg**-0.5
     L = (4*np.pi*R**3/3)**(1./3) *1000/length_unit# volume-equivalent box size
-    vrms = (6/5 * G * M_gas / R)**0.5 * 1000 / v_unit * alpha_turb**0.5
+    vrms = (6/5 * G * M_gas / R)**0.5 * 1000 / v_unit * turbulence**0.5
     tcross = L/vrms
 
     turbenergy = 0.019111097819633344*vrms**3/L # ST_Energy sets the dissipation rate of SPECIFIC energy ~ v^2 / (L/v) ~ v^3/L
