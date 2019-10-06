@@ -87,8 +87,8 @@ SofteningGas    1e-10   % gas (particle type=0) (in co-moving code units)
 SofteningHalo   0.020    % dark matter/collisionless particles (type=1)
 SofteningDisk   0.150    % collisionless particles (type=2)
 SofteningBulge  0.500    % collisionless particles (type=3)
-SofteningStars  2.255e-7    % stars spawned from gas (type=4)
-SofteningBndry  2.255e-7       % black holes (if active), or collisionless (type=5)
+SofteningStars  3.66e-6   % stars spawned from gas (type=4)
+SofteningBndry  3.66e-6       % black holes (if active), or collisionless (type=5)
 
 %---- if these are set in cosmo runs, SofteningX switches from comoving to physical
 %------- units when the comoving value exceeds the choice here
