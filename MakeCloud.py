@@ -11,6 +11,8 @@ Options:
    --filename=<name>    Name of the IC file to be generated
    --N=<N>              Number of gas particles [default: 125000]
    --MBH=<msun>         Mass of the central black hole [default: 0.0]
+   --central_star       Sets the central sink (MBH>0) to be a ZAMS star
+   --density_exponent=<f>   Power law exponent of the density profile [default: 0.0]
    --spin=<f>           Spin parameter: fraction of binding energy in solid-body rotation [default: 0.0]
    --turb_type=<s>      Type of initial turbulent velocity (and possibly density field): 'gaussian' or 'full' [default: gaussian]
    --turb_sol=<f>       Fraction of turbulence in solenoidal modes, used when turb_type is 'gaussian' [default: 0.5]
@@ -96,6 +98,7 @@ R = float(arguments["--R"])/1e3
 M_gas = float(arguments["--M"])/1e10
 N_gas = int(float(arguments["--N"])+0.5)
 M_BH = float(arguments["--MBH"])/1e10
+central_star = arguments["--central_star"]
 spin = float(arguments["--spin"])
 turbulence = float(arguments["--alpha_turb"])
 turb_type = arguments["--turb_type"]
@@ -118,6 +121,7 @@ v_unit = float(arguments["--v_unit"])
 sinkbox = float(arguments["--sinkbox"])
 makebox = arguments["--makebox"]
 fixed_ncrit=float(arguments["--fixed_ncrit"])
+density_exponent=float(arguments["--density_exponent"])
 
 if sinkbox:
     turb_type = 'full'
@@ -154,7 +158,7 @@ if GMC_units:
     delta_m = M_gas*1e10/mass_unit/N_gas
     rhocrit = 421/ delta_m**2
     rho_avg = 3*M_gas*1e10/(R*1e3)**3/(4*np.pi)
-    softening = 0.0000173148 # 10AU/2.8 #(delta_m/rhocrit)**(1./3)
+    softening = 3.66e-5 # ~10 AU
     if fixed_ncrit:
         ncrit=fixed_ncrit
     else:
@@ -251,7 +255,8 @@ else:
     x, r = x/r.max(), r/r.max()
 #    rnew = r * R
     print("Doing density profile...")
-    rho_form = lambda r: 1. #change this function to get a different radial density profile; normalization does not matter as long as rmin and rmax are properly specified
+    rho_form = lambda r: (r+R/1000)**(density_exponent) #change this function to get a different radial density profile; normalization does not matter as long as rmin and rmax are properly specified
+#    rho_form = lambda r: 1. #constant density
 #    rho_form = lambda r: (r+R/1000)**-1.5
     rmin = 0.
     rho_norm = quad(lambda r: rho_form(r) * 4 * np.pi * r**2, rmin, R)[0]
@@ -399,6 +404,38 @@ F["PartType0"].create_dataset("ParticleIDs", data=1+np.arange(N_gas+N_warm)+(1 i
 F["PartType0"].create_dataset("InternalEnergy", data=u*(1000/v_unit)**2)
 F["PartType0"].create_dataset("Density", data=rho*1e10/mass_unit/(1000/length_unit)**3)
 F["PartType0"].create_dataset("SmoothingLength", data=h*1000/length_unit)
+if M_BH>0:
+    F.create_group("PartType5")
+    #Let's add the sink at the center
+    F["PartType5"].create_dataset("Masses", data=np.array([M_BH*1e10/mass_unit]))
+    F["PartType5"].create_dataset("Coordinates", data=np.array([1.,1.,1.])*boxsize/2) #at the center
+    F["PartType5"].create_dataset("Velocities", data=np.array([0.,0.,0.])) #at rest
+    F["PartType5"].create_dataset("ParticleIDs", data=np.array([1]))
+    #Advanced properties for sinks
+    F["PartType5"].create_dataset("BH_Mass", data=M_BH*1e10/mass_unit) #all the mass in the sink/protostar/star
+    F["PartType5"].create_dataset("BH_Mass_AlphaDisk", data=np.array([0.])) #starts with no disk
+    F["PartType5"].create_dataset("BH_Mdot", data=np.array([0.])) #starts with no mdot
+    F["PartType5"].create_dataset("BH_Specific_AngMom", data=np.array([0.])) #starts with no angular momentum
+    F["PartType5"].create_dataset("SinkRadius", data=np.array([softening])) #Sinkradius set to softening
+    F["PartType5"].create_dataset("StellarFormationTime", data=np.array([0.]))
+    #Stellar properties
+    if central_star:
+        F["PartType5"].create_dataset("ProtoStellarStage", data=np.array([5])) #starts as ZAMS star
+        #Set guess for ZAMS stellar radius, will be overwritten
+        if ((M_BH*1e10)>1.0):
+            R_ZAMS = (M_BH*1e10)**0.57
+        else:
+            R_ZAMS = (M_BH*1e10)**0.8
+        F["PartType5"].create_dataset("ProtoStellarRadius_inSolar", data=np.array([R_ZAMS])) #Sinkradius set to softening
+        F["PartType5"].create_dataset("StarLuminosity_Solar", data=np.array([0.])) #dummy
+        F["PartType5"].create_dataset("Mass_D", data=np.array([0.])) #No D left
+    else:
+        F["PartType5"].create_dataset("ProtoStellarStage", data=np.array([0])) #starts as pre-collapse
+        F["PartType5"].create_dataset("ProtoStellarRadius_inSolar", data=np.array([2])) #dummy value
+        F["PartType5"].create_dataset("StarLuminosity_Solar", data=np.array([0.])) #dummy
+        F["PartType5"].create_dataset("Mass_D", data=np.array([M_BH*1e10/mass_unit])) #100% of D left
+
+    
 if magnetic_field > 0.0:
     F["PartType0"].create_dataset("MagneticField", data=B/B_unit)
 if sinkbox:
