@@ -148,7 +148,7 @@ res_effective = int(N_gas**(1.0/3.0)+0.5)
 phimode=float(arguments["--phimode"])
 
 if filename is None:
-    filename = "M%3.2g_"%(1e10*M_gas) + ("MBH%g_"%(1e10*M_BH) if M_BH>0 else "") + "R%g_S%g_T%g_B%g_Res%d_n%d_sol%g"%(R*1e3,spin,turbulence,magnetic_field,res_effective,minmode,turb_sol) +  ("_%d"%seed) + ".hdf5"
+    filename = "M%3.2g_"%(1e10*M_gas) + ("MBH%g_"%(1e10*M_BH) if M_BH>0 else "") + ("rho_exp%g_"%(-density_exponent) if density_exponent<0 else "") + "R%g_S%g_T%g_B%g_Res%d_n%d_sol%g"%(R*1e3,spin,turbulence,magnetic_field,res_effective,minmode,turb_sol) +  ("_%d"%seed) + ".hdf5"
     filename = filename.replace("+","").replace('e0','e')
     filename = "".join(filename.split())
     
@@ -166,7 +166,10 @@ if GMC_units:
     tff = 8.275e-3 * rho_avg**-0.5
     L = (4*np.pi*R**3/3)**(1./3) *1000/length_unit# volume-equivalent box size
     vrms = (6/5 * G * M_gas / R)**0.5 * 1000 / v_unit * turbulence**0.5
-    tcross = L/vrms
+    if turbulence:
+        tcross = L/vrms
+    else:
+        tcross = tff
 
     turbenergy = 0.019111097819633344*vrms**3/L # ST_Energy sets the dissipation rate of SPECIFIC energy ~ v^2 / (L/v) ~ v^3/L
 #    print(tff)
