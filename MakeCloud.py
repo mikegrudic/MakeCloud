@@ -258,8 +258,11 @@ else:
     x, r = x/r.max(), r/r.max()
 #    rnew = r * R
     print("Doing density profile...")
-    rho_form = lambda r: (r+R/1000)**(density_exponent) #change this function to get a different radial density profile; normalization does not matter as long as rmin and rmax are properly specified
-#    rho_form = lambda r: 1. #constant density
+    if density_exponent<0:
+        rho_form = lambda r: (r+R/1000)**(density_exponent) #change this function to get a different radial density profile; normalization does not matter as long as rmin and rmax are properly specified
+    else:
+        print("Using constant density")
+        rho_form = lambda r: 1. #constant density
 #    rho_form = lambda r: (r+R/1000)**-1.5
     rmin = 0.
     rho_norm = quad(lambda r: rho_form(r) * 4 * np.pi * r**2, rmin, R)[0]
@@ -411,7 +414,7 @@ if M_BH>0:
     F.create_group("PartType5")
     #Let's add the sink at the center
     F["PartType5"].create_dataset("Masses", data=np.array([M_BH*1e10/mass_unit]))
-    F["PartType5"].create_dataset("Coordinates", data=np.array([1.,1.,1.])*boxsize/2) #at the center
+    F["PartType5"].create_dataset("Coordinates", data=np.array([1.,1.,1.])*boxsize/2*1000/length_unit) #at the center
     F["PartType5"].create_dataset("Velocities", data=np.array([0.,0.,0.])) #at rest
     F["PartType5"].create_dataset("ParticleIDs", data=np.array([1]))
     #Advanced properties for sinks
@@ -423,7 +426,8 @@ if M_BH>0:
     F["PartType5"].create_dataset("StellarFormationTime", data=np.array([0.]))
     #Stellar properties
     if central_star:
-        F["PartType5"].create_dataset("ProtoStellarStage", data=np.array([5])) #starts as ZAMS star
+        print("Assuming central sink is a ZAMS star")
+        F["PartType5"].create_dataset("ProtoStellarStage", data=np.array([5],dtype=np.int32), dtype=np.int32) #starts as ZAMS star
         #Set guess for ZAMS stellar radius, will be overwritten
         if ((M_BH*1e10)>1.0):
             R_ZAMS = (M_BH*1e10)**0.57
@@ -433,8 +437,9 @@ if M_BH>0:
         F["PartType5"].create_dataset("StarLuminosity_Solar", data=np.array([0.])) #dummy
         F["PartType5"].create_dataset("Mass_D", data=np.array([0.])) #No D left
     else:
-        F["PartType5"].create_dataset("ProtoStellarStage", data=np.array([0])) #starts as pre-collapse
-        F["PartType5"].create_dataset("ProtoStellarRadius_inSolar", data=np.array([2])) #dummy value
+        print("Assuming central sink is a pre-collapse object")
+        F["PartType5"].create_dataset("ProtoStellarStage", data=np.array([0],dtype=np.int), dtype=np.int32) #starts as pre-collapse
+        F["PartType5"].create_dataset("ProtoStellarRadius_inSolar", data=np.array([2.])) #dummy value
         F["PartType5"].create_dataset("StarLuminosity_Solar", data=np.array([0.])) #dummy
         F["PartType5"].create_dataset("Mass_D", data=np.array([M_BH*1e10/mass_unit])) #100% of D left
 
