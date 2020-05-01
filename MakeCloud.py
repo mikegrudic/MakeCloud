@@ -12,6 +12,7 @@ Options:
    --N=<N>              Number of gas particles [default: 125000]
    --MBH=<msun>         Mass of the central black hole [default: 0.0]
    --central_star       Sets the central sink (MBH>0) to be a ZAMS star
+   --central_SN         Sets the central sink (MBH>0) to go supernova
    --density_exponent=<f>   Power law exponent of the density profile [default: 0.0]
    --spin=<f>           Spin parameter: fraction of binding energy in solid-body rotation [default: 0.0]
    --turb_type=<s>      Type of initial turbulent velocity (and possibly density field): 'gaussian' or 'full' [default: gaussian]
@@ -99,6 +100,7 @@ M_gas = float(arguments["--M"])/1e10
 N_gas = int(float(arguments["--N"])+0.5)
 M_BH = float(arguments["--MBH"])/1e10
 central_star = arguments["--central_star"]
+central_SN = arguments["--central_SN"]
 spin = float(arguments["--spin"])
 turbulence = float(arguments["--alpha_turb"])
 turb_type = arguments["--turb_type"]
@@ -148,7 +150,7 @@ res_effective = int(N_gas**(1.0/3.0)+0.5)
 phimode=float(arguments["--phimode"])
 
 if filename is None:
-    filename = "M%3.2g_"%(1e10*M_gas) + ("MBH%g_"%(1e10*M_BH) if M_BH>0 else "") + ("rho_exp%g_"%(-density_exponent) if density_exponent<0 else "") + "R%g_S%g_T%g_B%g_Res%d_n%d_sol%g"%(R*1e3,spin,turbulence,magnetic_field,res_effective,minmode,turb_sol) +  ("_%d"%seed) + ".hdf5"
+    filename = "M%3.2g_"%(1e10*M_gas) + ("MBH%g_"%(1e10*M_BH) if M_BH>0 else "") + ("rho_exp%g_"%(-density_exponent) if density_exponent<0 else "") + "R%g_S%g_T%g_B%g_Res%d_n%d_sol%g"%(R*1e3,spin,turbulence,magnetic_field,res_effective,minmode,turb_sol) +  ("_%d"%seed) + ("_SN" if central_SN else "") + ".hdf5"
     filename = filename.replace("+","").replace('e0','e')
     filename = "".join(filename.split())
     
@@ -393,6 +395,9 @@ if sinkbox:
     v_sinks = np.random.normal(size=(N_sinks,3)) * (np.sum(v**2,axis=1).mean() / 3)**0.5 # random velocities equal to RMS gas velocity        
 
 
+
+dx= x*1000/length_unit - np.array([1.,1.,1.])*boxsize/2*1000/length_unit
+
 print("Writing snapshot...")
 
 F=h5py.File(filename, 'w')
@@ -417,6 +422,7 @@ if M_BH>0:
     F["PartType5"].create_dataset("Coordinates", data=np.array([1.,1.,1.])*boxsize/2*1000/length_unit) #at the center
     F["PartType5"].create_dataset("Velocities", data=np.array([0.,0.,0.])) #at rest
     F["PartType5"].create_dataset("ParticleIDs", data=np.array([1]))
+    F["PartType5"].create_dataset("SmoothingLength", data=np.array([np.mean(h*1000/length_unit)])/2.)
     #Advanced properties for sinks
     F["PartType5"].create_dataset("BH_Mass", data=M_BH*1e10/mass_unit) #all the mass in the sink/protostar/star
     F["PartType5"].create_dataset("BH_Mass_AlphaDisk", data=np.array([0.])) #starts with no disk
@@ -425,9 +431,13 @@ if M_BH>0:
     F["PartType5"].create_dataset("SinkRadius", data=np.array([softening])) #Sinkradius set to softening
     F["PartType5"].create_dataset("StellarFormationTime", data=np.array([0.]))
     #Stellar properties
-    if central_star:
-        print("Assuming central sink is a ZAMS star")
-        F["PartType5"].create_dataset("ProtoStellarStage", data=np.array([5],dtype=np.int32), dtype=np.int32) #starts as ZAMS star
+    if (central_star or central_SN):
+        if central_star:
+            print("Assuming central sink is a ZAMS star")
+            F["PartType5"].create_dataset("ProtoStellarStage", data=np.array([5],dtype=np.int32), dtype=np.int32) #starts as ZAMS star
+        else:
+            print("Assuming central sink is a ZAMS star about to go supernova")
+            F["PartType5"].create_dataset("ProtoStellarStage", data=np.array([6],dtype=np.int32), dtype=np.int32) #starts as ZAMS star going SN
         #Set guess for ZAMS stellar radius, will be overwritten
         if ((M_BH*1e10)>1.0):
             R_ZAMS = (M_BH*1e10)**0.57
