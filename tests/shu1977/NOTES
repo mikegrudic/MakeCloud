@@ -1,0 +1,6 @@
+This is the Shu 1997 singular isothermal collapse problem. We have a 10 solar mass core with a r^-2 density profile, initially at rest, and with the outer radius scaled so that the core is initially 2x the critical density for collapse (A=4).
+
+Minimal flags for running this problem with GIZMO would be
+SINGLE_STAR_STARFORGE_DEFAULTS
+EOS_ENFORCE_ADIABAT=4e4
+EOS_GAMMA=1.001

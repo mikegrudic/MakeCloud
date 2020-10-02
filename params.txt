@@ -63,7 +63,7 @@ HubbleParam             1.     % little 'h'; =1 for non-cosmological runs
 %----- Memory allocation
 MaxMemSize          3500    % sets maximum MPI process memory use in MByte
 PartAllocFactor     5.0     % memory load allowed for better cpu balance
-BufferSize          100     % in MByte
+BufferSize          500     % in MByte
 
 %---- Rebuild domains when >this fraction of particles active
 TreeDomainUpdateFrequency   0.005    % 0.0005-0.05, dept on core+particle number
