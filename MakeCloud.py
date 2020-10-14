@@ -19,6 +19,7 @@ Options:
    --turb_sol=<f>       Fraction of turbulence in solenoidal modes, used when turb_type is 'gaussian' [default: 0.5]
    --alpha_turb=<f>     Turbulent energy as a fraction of the binding energy [default: 1.]
    --bturb=<f>          Magnetic energy as a fraction of the binding energy [default: 0.01]
+   --bfixed=<f>         Magnetic field in magnitude in code units, used instaed of bturb if not set to zero [default: 0]
    --minmode=<N>        Minimum populated turbulent wavenumber for Gaussian initial velocity field, in units of pi/R [default: 2]
    --turb_path=<name>   Path to store turbulent velocity fields so that we only need to generate them once [default: /home/mgrudic/turb]
    --glass_path=<name>  Contains the root path of the glass ic [default: /home/mgrudic/glass_256.npy]
@@ -107,6 +108,7 @@ turb_type = arguments["--turb_type"]
 seed = int(float(arguments["--turb_seed"])+0.5)
 turb_sol = float(arguments["--turb_sol"])
 magnetic_field = float(arguments["--bturb"])
+bfixed = float(rguments["--bfixed"])
 minmode = int(arguments["--minmode"])
 filename = arguments["--filename"]
 turb_path = arguments["--turb_path"]
@@ -316,10 +318,13 @@ v *= np.sqrt(turbulence*ugrav/Eturb)
 v += np.cross(np.c_[np.zeros_like(omega),np.zeros_like(omega),omega], x)
 
 
-if magnetic_field>0.0 and turb_type != 'full':
+if ( (magnetic_field>0.0) or (bfixed>0) ) and turb_type != 'full':
     B = np.c_[np.zeros(N_gas), np.zeros(N_gas), np.ones(N_gas)]
     uB = np.sum(np.sum(B*B, axis=1) * 4*np.pi*R**3/3 /N_gas * 3.09e21**3)* 0.03979 *5.03e-54
-    B = B * np.sqrt(magnetic_field*ugrav/uB)
+    if (bfixed>0):
+        B = B * bfixed
+    else:
+        B = B * np.sqrt(magnetic_field*ugrav/uB)
 
 v = v - np.average(v, axis=0)
 x = x - np.average(x, axis=0)
