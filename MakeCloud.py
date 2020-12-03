@@ -160,13 +160,14 @@ if GMC_units:
 #    print "Cloud density: ", (np.sum(mgas)*1e10/mass_unit/(4.0/3.0*3.141*(R*1000/length_unit)**3)), " M_sun/pc^3", '   ',  (np.sum(mgas)*1e10/mass_unit/(4.0/3.0*3.141*(R*1000/length_unit)**3)/24532.3*1e6), " mu^(-1) cm^(-3)" 
     #n_crit mased on assumption that dm=M_jeans, meaning that densest is still resolved by NJ particles
     delta_m = M_gas*1e10/mass_unit/N_gas
-    rhocrit = 421/ delta_m**2
+    #rhocrit = 421/ delta_m**2
     rho_avg = 3*M_gas*1e10/(R*1e3)**3/(4*np.pi)
-    softening = 3.66e-5 # ~10 AU
+    softening = 3.11e-5 # ~6.5 AU, minimum sink radius is 2.8 times that (~18 AU)
     if fixed_ncrit:
         ncrit=fixed_ncrit
     else:
-        ncrit = 8920 / delta_m**2 #1.0e11
+        #ncrit = 8920 / delta_m**2 #1.0e11
+        ncrit = 9.45e9 * (delta_m/0.001)**(-2.0)
     tff = 8.275e-3 * rho_avg**-0.5
     L = (4*np.pi*R**3/3)**(1./3) *1000/length_unit# volume-equivalent box size
     vrms = (6/5 * G * M_gas / R)**0.5 * 1000 / v_unit * turbulence**0.5
@@ -183,7 +184,7 @@ if GMC_units:
 #    print "dx_min: ", ((np.sum(mgas)*1e10/mass_unit/(2.45e8*ncrit/1e10))**(1/3.0)), "T10^(-1) NJ(^2/3) mu^(4/3) pc"
     paramsfile = str(open(os.path.realpath(__file__).replace("MakeCloud.py","params.txt"), 'r').read())
 
-    replacements = {"NAME": filename.replace(".hdf5",""), "DTSNAP": tff/50, "MAXTIMESTEP": tff/100, "SOFTENING": softening, "GASSOFT": 2.0e-8, "TMAX": tff*5, "RHOMAX": ncrit, "BOXSIZE": boxsize*1000/length_unit, "OUTFOLDER": "output", "WIND_PART_MASS": delta_m/10.0, "BH_SEED_MASS": delta_m/2.0 , "TURBDECAY": tcross/2, "TURBENERGY": turbenergy, "TURBFREQ": tcross/20, "TURB_KMIN": int(100 * 2*np.pi/L)/100., "TURB_KMAX": int(100*4*np.pi/(L)+1)/100.}
+    replacements = {"NAME": filename.replace(".hdf5",""), "DTSNAP": tff/150, "MAXTIMESTEP": tff/300, "SOFTENING": softening, "GASSOFT": 2.0e-8, "TMAX": tff*5, "RHOMAX": ncrit, "BOXSIZE": boxsize*1000/length_unit, "OUTFOLDER": "output", "WIND_PART_MASS": delta_m/10.0, "BH_SEED_MASS": delta_m/2.0 , "TURBDECAY": tcross/2, "TURBENERGY": turbenergy, "TURBFREQ": tcross/20, "TURB_KMIN": int(100 * 2*np.pi/L)/100., "TURB_KMAX": int(100*4*np.pi/(L)+1)/100.}
     
     for k in replacements.keys():
         paramsfile = paramsfile.replace(k, str(replacements[k])) 

@@ -70,8 +70,8 @@ TreeDomainUpdateFrequency   0.005    % 0.0005-0.05, dept on core+particle number
 
 
 %---- (Optional) Initial hydro temperature & temperature floor (in Kelvin)
-InitGasTemp     0	    % set by IC file if =0
-MinGasTemp      10.	    % don't set <10 in explicit feedback runs, otherwise 0
+InitGasTemp     20	    % set by IC file if =0
+MinGasTemp      2.73	    % don't set <10 in explicit feedback runs, otherwise 0
 
 %---- Hydro reconstruction (kernel) parameters
 DesNumNgb               32      % domain-reconstruction kernel number: 32 standard, 60-114 for quintic
@@ -87,8 +87,8 @@ SofteningGas    1e-10   % gas (particle type=0) (in co-moving code units)
 SofteningHalo   0.020    % dark matter/collisionless particles (type=1)
 SofteningDisk   0.150    % collisionless particles (type=2)
 SofteningBulge  0.500    % collisionless particles (type=3)
-SofteningStars  3.66e-5   % stars spawned from gas (type=4)
-SofteningBndry  3.66e-5       % black holes (if active), or collisionless (type=5)
+SofteningStars  SOFTENING   % stars spawned from gas (type=4)
+SofteningBndry  SOFTENING       % black holes (if active), or collisionless (type=5)
 
 %---- if these are set in cosmo runs, SofteningX switches from comoving to physical
 %------- units when the comoving value exceeds the choice here
@@ -243,7 +243,7 @@ ST_AmplFac     1.0      % multiplies turb amplitudes
 ST_SpectForm   3        % driving pwr-spec: 0=Ek~const; 1=sharp-peak at kc; 2=Ek~k^(-5/3); 3=Ek~k^-2
 ST_Seed        42       % random number seed for modes (so you can reproduce it)
 IsoSoundSpeed  200.      % initializes gas sound speed in box to this value
-TimeBetTurbSpectrum 0.5 % time (code units) between evaluations of turb pwrspec
+TimeBetTurbSpectrum DTSNAP % time (code units) between evaluations of turb pwrspec
 
 
 %-------------------------------------------------------------------------------------------------
