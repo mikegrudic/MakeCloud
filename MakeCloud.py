@@ -28,18 +28,17 @@ Options:
    --warmgas            Add warm ISM envelope in pressure equilibrium that fills the box with uniform density.
    --phimode=<f>        Relative amplitude of m=2 density perturbation (e.g. for Boss-Bodenheimer test) [default: 0.0]
    --localdir           Changes directory defaults assuming all files are used from local directory.
-   --B_unit=<gauss>     Unit of magnetic field in gauss [default: 1.0]
-   --length_unit=<pc>   Unit of length in pc [default: 1000]
-   --mass_unit=<msun>   Unit of mass in M_sun [default: 1e10]
-   --v_unit=<m/s>       Unit of velocity in m/s [default: 1000]
+   --B_unit=<gauss>     Unit of magnetic field in gauss [default: 1e4]
+   --length_unit=<pc>   Unit of length in pc [default: 1]
+   --mass_unit=<msun>   Unit of mass in M_sun [default: 1]
+   --v_unit=<m/s>       Unit of velocity in m/s [default: 1]
    --sinkbox=<f>        Setup for light seeds in a turbulent box problem - parameter is the maximum seed mass in solar [default: 0.0]
    --turb_seed=<N>      Random seed for turbulence initialization [default: 42]
-   --GMC_units          Sets units appropriate for GMCs, so pc, m/s, m_sun, tesla
    --param_only         Just makes the parameters file, not the IC
    --fixed_ncrit=<f>    Fixes ncrit to a specific value [default: 0.0]
    --makebox            Creates a second box IC of equivalent volume and mass to the cloud
 """
-#Example:  python MakeCloud.py --M=1000 --N=1e7 --R=1.0 --localdir --GMC_units --warmgas --param_only
+#Example:  python MakeCloud.py --M=1000 --N=1e7 --R=1.0 --localdir --warmgas --param_only
 
 
 import numpy as np
@@ -116,7 +115,6 @@ glass_path = arguments["--glass_path"]
 G = float(arguments["--G"])
 warmgas = arguments["--warmgas"]
 localdir = arguments["--localdir"]
-GMC_units = arguments["--GMC_units"]
 param_only = arguments["--param_only"]
 B_unit = float(arguments["--B_unit"])
 length_unit = float(arguments["--length_unit"])
@@ -130,11 +128,10 @@ density_exponent=float(arguments["--density_exponent"])
 if sinkbox:
     turb_type = 'full'
     
-if GMC_units:
-    B_unit = 1e4
-    length_unit = 1.0
-    mass_unit = 1.0
-    v_unit = 1.0
+#B_unit = 1e4
+#length_unit = 1.0
+#mass_unit = 1.0
+#v_unit = 1.0
 
 if localdir:
     turb_path = "turb"
@@ -156,7 +153,6 @@ if filename is None:
     filename = filename.replace("+","").replace('e0','e')
     filename = "".join(filename.split())
     
-if GMC_units:   
 #    print "Cloud density: ", (np.sum(mgas)*1e10/mass_unit/(4.0/3.0*3.141*(R*1000/length_unit)**3)), " M_sun/pc^3", '   ',  (np.sum(mgas)*1e10/mass_unit/(4.0/3.0*3.141*(R*1000/length_unit)**3)/24532.3*1e6), " mu^(-1) cm^(-3)" 
     #n_crit mased on assumption that dm=M_jeans, meaning that densest is still resolved by NJ particles
     delta_m = M_gas*1e10/mass_unit/N_gas
@@ -387,7 +383,9 @@ if turb_type!='full':
     if warmgas: rho[-N_warm:] /= 1000
     h = (32*mgas/rho)**(1./3)
 
-if (arguments["--boxsize"] is not None or arguments["--warmgas"]) or sinkbox: x += boxsize/2
+#if (arguments["--boxsize"] is not None or arguments["--warmgas"]) or sinkbox:
+
+x += boxsize/2 # cloud is always centered at (boxsize/2,boxsize/2,boxsize/2)
 
 if sinkbox:
     m_min = M_gas/N_gas * 10
