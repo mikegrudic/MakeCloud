@@ -228,7 +228,7 @@ if turb_type=='full':
     else:
         xchoice = np.random.choice(np.arange(len(x)),size=N_gas,replace=False)
 
-    uB = np.sum(np.sum(B*B, axis=1) * 4*np.pi/3 *h**3 /32 * 3.09e21**3)* 0.03979 *5.03e-54
+#    uB = np.sum(np.sum(B*B, axis=1) * 4*np.pi/3 *h**3 /32 * 3.09e21**3)* 0.03979 *5.03e-54
     plasma_beta = 0.5*np.sum(m*np.sum(v**2,axis=1))/uB
 
     x, v, B, h, m = x[xchoice], v[xchoice], B[xchoice], h[xchoice], m[xchoice]
@@ -341,10 +341,10 @@ if turb_type=='full':
         rho, h = M.Density(), M.SmoothingLength()
     else:
         rho = (32*mgas/(4*np.pi/3 * h**3))
-    uB = np.sum(np.sum(B*B, axis=1) * 4*np.pi/3 *h**3 /32 * 3.09e21**3)* 0.03979 *5.03e-46
+#    uB = np.sum(np.sum(B*B, axis=1) * 4*np.pi/3 *h**3 /32 * 3.09e21**3)* 0.03979 *5.03e-46
     beta = np.sum(0.5*mgas*np.sum(v**2,axis=1))/uB
     B *= np.sqrt(beta/plasma_beta)
-    uB = np.sum(np.sum(B*B, axis=1) * 4*np.pi/3 *h**3 /32 * 3.09e21**3)* 0.03979 *5.03e-54
+#    uB = np.sum(np.sum(B*B, axis=1) * 4*np.pi/3 *h**3 /32 * 3.09e21**3)* 0.03979 *5.03e-54
     
 #print(x.mean(axis=0))
 u = np.ones_like(mgas)*0.101/2.0 #/2 needed because it is molecular
