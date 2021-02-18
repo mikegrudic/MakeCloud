@@ -17,13 +17,13 @@ Options:
    --spin=<f>           Spin parameter: fraction of binding energy in solid-body rotation [default: 0.0]
    --turb_type=<s>      Type of initial turbulent velocity (and possibly density field): 'gaussian' or 'full' [default: gaussian]
    --turb_sol=<f>       Fraction of turbulence in solenoidal modes, used when turb_type is 'gaussian' [default: 0.5]
-   --alpha_turb=<f>     Turbulent energy as a fraction of the binding energy [default: 1.]
+   --alpha_turb=<f>     Turbulent virial parameter (BM92 convention: 2Eturb/|Egrav|) [default: 2.]
    --bturb=<f>          Magnetic energy as a fraction of the binding energy [default: 0.01]
    --bfixed=<f>         Magnetic field in magnitude in code units, used instaed of bturb if not set to zero [default: 0]
    --minmode=<N>        Minimum populated turbulent wavenumber for Gaussian initial velocity field, in units of pi/R [default: 2]
    --turb_path=<name>   Path to store turbulent velocity fields so that we only need to generate them once [default: /home/mgrudic/turb]
    --glass_path=<name>  Contains the root path of the glass ic [default: /home/mgrudic/glass_256.npy]
-   --G=<f>              Gravitational constant in code units [default: 4.301e4]
+   --G=<f>              Gravitational constant in code units [default: 4300.71]
    --boxsize=<f>        Simulation box size
    --warmgas            Add warm ISM envelope in pressure equilibrium that fills the box with uniform density.
    --phimode=<f>        Relative amplitude of m=2 density perturbation (e.g. for Boss-Bodenheimer test) [default: 0.0]
@@ -102,7 +102,7 @@ M_BH = float(arguments["--MBH"])/1e10
 central_star = arguments["--central_star"]
 central_SN = arguments["--central_SN"]
 spin = float(arguments["--spin"])
-turbulence = float(arguments["--alpha_turb"])
+turbulence = float(arguments["--alpha_turb"])/2
 turb_type = arguments["--turb_type"]
 seed = int(float(arguments["--turb_seed"])+0.5)
 turb_sol = float(arguments["--turb_sol"])
