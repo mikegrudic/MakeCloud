@@ -167,7 +167,6 @@ if filename is None:
     tff = 8.275e-3 * rho_avg**-0.5
     L = (4*np.pi*R**3/3)**(1./3) /length_unit# volume-equivalent box size
     vrms = (6/5 * G * M_gas / R)**0.5  / v_unit * turbulence**0.5
-    print("vrms=%g\n"%vrms)
     if turbulence:
         tcross = L/vrms
     else:
@@ -318,11 +317,12 @@ v += np.cross(np.c_[np.zeros_like(omega),np.zeros_like(omega),omega], x)
 
 if ( (magnetic_field>0.0) or (bfixed>0) ) and turb_type != 'full':
     B = np.c_[np.zeros(N_gas), np.zeros(N_gas), np.ones(N_gas)]
-    uB = np.sum(np.sum(B*B, axis=1) * 4*np.pi*R**3/3 /N_gas * 3.09e21**3)* 0.03979 *5.03e-54
+    uB = np.sum(np.sum(B*B, axis=1) * (R*length_unit)**3 /N_gas) * 2.463e17 
     if (bfixed>0):
         B = B * bfixed
     else:
-        B = B * np.sqrt(magnetic_field*ugrav/uB)
+        B = B * np.sqrt(magnetic_field*ugrav/uB) # in gauss
+
 
 v = v - np.average(v, axis=0)
 x = x - np.average(x, axis=0)
@@ -341,7 +341,7 @@ if turb_type=='full':
         rho, h = M.Density(), M.SmoothingLength()
     else:
         rho = (32*mgas/(4*np.pi/3 * h**3))
-    uB = np.sum(np.sum(B*B, axis=1) * 4*np.pi/3 *h**3 /32 * 3.09e21**3)* 0.03979 *5.03e-54
+    uB = np.sum(np.sum(B*B, axis=1) * 4*np.pi/3 *h**3 /32 * 3.09e21**3)* 0.03979 *5.03e-46
     beta = np.sum(0.5*mgas*np.sum(v**2,axis=1))/uB
     B *= np.sqrt(beta/plasma_beta)
     uB = np.sum(np.sum(B*B, axis=1) * 4*np.pi/3 *h**3 /32 * 3.09e21**3)* 0.03979 *5.03e-54
