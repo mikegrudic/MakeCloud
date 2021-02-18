@@ -21,8 +21,8 @@ Options:
    --bturb=<f>          Magnetic energy as a fraction of the binding energy [default: 0.01]
    --bfixed=<f>         Magnetic field in magnitude in code units, used instaed of bturb if not set to zero [default: 0]
    --minmode=<N>        Minimum populated turbulent wavenumber for Gaussian initial velocity field, in units of pi/R [default: 2]
-   --turb_path=<name>   Path to store turbulent velocity fields so that we only need to generate them once [default: /home/mgrudic/turb]
-   --glass_path=<name>  Contains the root path of the glass ic [default: /home/mgrudic/glass_256.npy]
+   --turb_path=<name>   Path to store turbulent velocity fields so that we only need to generate them once [default: /home1/03532/mgrudic/turb]
+   --glass_path=<name>  Contains the root path of the glass ic [default: /home1/03532/mgrudic/glass_256.npy]
    --G=<f>              Gravitational constant in code units [default: 4300.71]
    --boxsize=<f>        Simulation box size
    --warmgas            Add warm ISM envelope in pressure equilibrium that fills the box with uniform density.
@@ -95,10 +95,10 @@ def TurbField(res=256, minmode=2, maxmode = 64, sol_weight=1., seed=42):
 
 
 arguments = docopt(__doc__)
-R = float(arguments["--R"])/1e3
-M_gas = float(arguments["--M"])/1e10
+R = float(arguments["--R"])
+M_gas = float(arguments["--M"])
 N_gas = int(float(arguments["--N"])+0.5)
-M_BH = float(arguments["--MBH"])/1e10
+M_BH = float(arguments["--MBH"])
 central_star = arguments["--central_star"]
 central_SN = arguments["--central_SN"]
 spin = float(arguments["--spin"])
@@ -149,15 +149,15 @@ res_effective = int(N_gas**(1.0/3.0)+0.5)
 phimode=float(arguments["--phimode"])
 
 if filename is None:
-    filename = "M%3.2g_"%(1e10*M_gas) + ("MBH%g_"%(1e10*M_BH) if M_BH>0 else "") + ("rho_exp%g_"%(-density_exponent) if density_exponent<0 else "") + "R%g_S%g_T%g_B%g_Res%d_n%d_sol%g"%(R*1e3,spin,turbulence,magnetic_field,res_effective,minmode,turb_sol) +  ("_%d"%seed) + ("_SN" if central_SN else "") + ".hdf5"
+    filename = "M%3.2g_"%(M_gas) + ("MBH%g_"%(M_BH) if M_BH>0 else "") + ("rho_exp%g_"%(-density_exponent) if density_exponent<0 else "") + "R%g_S%g_T%g_B%g_Res%d_n%d_sol%g"%(R,spin,turbulence,magnetic_field,res_effective,minmode,turb_sol) +  ("_%d"%seed) + ("_SN" if central_SN else "") + ".hdf5"
     filename = filename.replace("+","").replace('e0','e')
     filename = "".join(filename.split())
     
 #    print "Cloud density: ", (np.sum(mgas)*1e10/mass_unit/(4.0/3.0*3.141*(R*1000/length_unit)**3)), " M_sun/pc^3", '   ',  (np.sum(mgas)*1e10/mass_unit/(4.0/3.0*3.141*(R*1000/length_unit)**3)/24532.3*1e6), " mu^(-1) cm^(-3)" 
     #n_crit mased on assumption that dm=M_jeans, meaning that densest is still resolved by NJ particles
-    delta_m = M_gas*1e10/mass_unit/N_gas
+    delta_m = M_gas/mass_unit/N_gas
     #rhocrit = 421/ delta_m**2
-    rho_avg = 3*M_gas*1e10/(R*1e3)**3/(4*np.pi)
+    rho_avg = 3*M_gas/(R)**3/(4*np.pi)
     softening = 3.11e-5 # ~6.5 AU, minimum sink radius is 2.8 times that (~18 AU)
     if fixed_ncrit:
         ncrit=fixed_ncrit
@@ -165,8 +165,9 @@ if filename is None:
         #ncrit = 8920 / delta_m**2 #1.0e11
         ncrit = 9.45e9 * (delta_m/0.001)**(-2.0)
     tff = 8.275e-3 * rho_avg**-0.5
-    L = (4*np.pi*R**3/3)**(1./3) *1000/length_unit# volume-equivalent box size
-    vrms = (6/5 * G * M_gas / R)**0.5 * 1000 / v_unit * turbulence**0.5
+    L = (4*np.pi*R**3/3)**(1./3) /length_unit# volume-equivalent box size
+    vrms = (6/5 * G * M_gas / R)**0.5  / v_unit * turbulence**0.5
+    print("vrms=%g\n"%vrms)
     if turbulence:
         tcross = L/vrms
     else:
@@ -180,7 +181,7 @@ if filename is None:
 #    print "dx_min: ", ((np.sum(mgas)*1e10/mass_unit/(2.45e8*ncrit/1e10))**(1/3.0)), "T10^(-1) NJ(^2/3) mu^(4/3) pc"
     paramsfile = str(open(os.path.realpath(__file__).replace("MakeCloud.py","params.txt"), 'r').read())
 
-    replacements = {"NAME": filename.replace(".hdf5",""), "DTSNAP": tff/150, "MAXTIMESTEP": tff/300, "SOFTENING": softening, "GASSOFT": 2.0e-8, "TMAX": tff*5, "RHOMAX": ncrit, "BOXSIZE": boxsize*1000/length_unit, "OUTFOLDER": "output", "WIND_PART_MASS": delta_m/10.0, "BH_SEED_MASS": delta_m/2.0 , "TURBDECAY": tcross/2, "TURBENERGY": turbenergy, "TURBFREQ": tcross/20, "TURB_KMIN": int(100 * 2*np.pi/L)/100., "TURB_KMAX": int(100*4*np.pi/(L)+1)/100.}
+    replacements = {"NAME": filename.replace(".hdf5",""), "DTSNAP": tff/150, "MAXTIMESTEP": tff/300, "SOFTENING": softening, "GASSOFT": 2.0e-8, "TMAX": tff*5, "RHOMAX": ncrit, "BOXSIZE": boxsize/length_unit, "OUTFOLDER": "output", "WIND_PART_MASS": delta_m/10.0, "BH_SEED_MASS": delta_m/2.0 , "TURBDECAY": tcross/2, "TURBENERGY": turbenergy, "TURBFREQ": tcross/20, "TURB_KMIN": int(100 * 2*np.pi/L)/100., "TURB_KMAX": int(100*4*np.pi/(L)+1)/100.}
     
     for k in replacements.keys():
         paramsfile = paramsfile.replace(k, str(replacements[k])) 
@@ -389,7 +390,7 @@ x += boxsize/2 # cloud is always centered at (boxsize/2,boxsize/2,boxsize/2)
 
 if sinkbox:
     m_min = M_gas/N_gas * 10
-    m_max = sinkbox/1e10
+    m_max = sinkbox
     if sinkbox < m_min: print("Maximum sink mass is less than the minimum of 10 times the gas mass resolution. Increase resolution or implement a different sampling scheme.")
 
     N_sinks = int(round(m_max/m_min))
@@ -400,7 +401,7 @@ if sinkbox:
 
 
 
-dx= x*1000/length_unit - np.array([1.,1.,1.])*boxsize/2*1000/length_unit
+dx= x/length_unit - np.array([1.,1.,1.])*boxsize/2/length_unit
 
 print("Writing snapshot...")
 
@@ -409,26 +410,26 @@ F.create_group("PartType0")
 F.create_group("Header")
 F["Header"].attrs["NumPart_ThisFile"] = [N_gas+N_warm,0,0,0,0,(1 if M_BH>0 else 0)]
 F["Header"].attrs["NumPart_Total"] = [N_gas+N_warm,0,0,0,0,(1 if M_BH>0 else 0)]
-F["Header"].attrs["MassTable"] = [M_gas/N_gas*1e10/mass_unit,0,0,0,0, M_BH*1e10/mass_unit]
-F["Header"].attrs["BoxSize"] = boxsize*1000/length_unit
+F["Header"].attrs["MassTable"] = [M_gas/N_gas/mass_unit,0,0,0,0, M_BH/mass_unit]
+F["Header"].attrs["BoxSize"] = boxsize/length_unit
 F["Header"].attrs["Time"] = 0.0
-F["PartType0"].create_dataset("Masses", data=mgas*1e10/mass_unit)
-F["PartType0"].create_dataset("Coordinates", data=x*1000/length_unit)
-F["PartType0"].create_dataset("Velocities", data=v*1000/v_unit)
+F["PartType0"].create_dataset("Masses", data=mgas/mass_unit)
+F["PartType0"].create_dataset("Coordinates", data=x/length_unit)
+F["PartType0"].create_dataset("Velocities", data=v/v_unit)
 F["PartType0"].create_dataset("ParticleIDs", data=1+np.arange(N_gas+N_warm)+(1 if M_BH>0 else 0))
-F["PartType0"].create_dataset("InternalEnergy", data=u*(1000/v_unit)**2)
-F["PartType0"].create_dataset("Density", data=rho*1e10/mass_unit/(1000/length_unit)**3)
-F["PartType0"].create_dataset("SmoothingLength", data=h*1000/length_unit)
+F["PartType0"].create_dataset("InternalEnergy", data=u*(1/v_unit)**2)
+F["PartType0"].create_dataset("Density", data=rho/mass_unit/(1/length_unit)**3)
+F["PartType0"].create_dataset("SmoothingLength", data=h*1/length_unit)
 if M_BH>0:
     F.create_group("PartType5")
     #Let's add the sink at the center
-    F["PartType5"].create_dataset("Masses", data=np.array([M_BH*1e10/mass_unit]))
-    F["PartType5"].create_dataset("Coordinates", data=np.array([1.,1.,1.])*boxsize/2*1000/length_unit) #at the center
+    F["PartType5"].create_dataset("Masses", data=np.array([M_BH/mass_unit]))
+    F["PartType5"].create_dataset("Coordinates", data=np.array([1.,1.,1.])*boxsize/2/length_unit) #at the center
     F["PartType5"].create_dataset("Velocities", data=np.array([0.,0.,0.])) #at rest
     F["PartType5"].create_dataset("ParticleIDs", data=np.array([1]))
-    F["PartType5"].create_dataset("SmoothingLength", data=np.array([np.mean(h*1000/length_unit)])/2.)
+    F["PartType5"].create_dataset("SmoothingLength", data=np.array([np.mean(h/length_unit)])/2.)
     #Advanced properties for sinks
-    F["PartType5"].create_dataset("BH_Mass", data=M_BH*1e10/mass_unit) #all the mass in the sink/protostar/star
+    F["PartType5"].create_dataset("BH_Mass", data=M_BH/mass_unit) #all the mass in the sink/protostar/star
     F["PartType5"].create_dataset("BH_Mass_AlphaDisk", data=np.array([0.])) #starts with no disk
     F["PartType5"].create_dataset("BH_Mdot", data=np.array([0.])) #starts with no mdot
     F["PartType5"].create_dataset("BH_Specific_AngMom", data=np.array([0.])) #starts with no angular momentum
@@ -443,10 +444,10 @@ if M_BH>0:
             print("Assuming central sink is a ZAMS star about to go supernova")
             F["PartType5"].create_dataset("ProtoStellarStage", data=np.array([6],dtype=np.int32), dtype=np.int32) #starts as ZAMS star going SN
         #Set guess for ZAMS stellar radius, will be overwritten
-        if ((M_BH*1e10)>1.0):
-            R_ZAMS = (M_BH*1e10)**0.57
+        if ((M_BH)>1.0):
+            R_ZAMS = (M_BH)**0.57
         else:
-            R_ZAMS = (M_BH*1e10)**0.8
+            R_ZAMS = (M_BH)**0.8
         F["PartType5"].create_dataset("ProtoStellarRadius_inSolar", data=np.array([R_ZAMS])) #Sinkradius set to softening
         F["PartType5"].create_dataset("StarLuminosity_Solar", data=np.array([0.])) #dummy
         F["PartType5"].create_dataset("Mass_D", data=np.array([0.])) #No D left
@@ -455,7 +456,7 @@ if M_BH>0:
         F["PartType5"].create_dataset("ProtoStellarStage", data=np.array([0],dtype=np.int), dtype=np.int32) #starts as pre-collapse
         F["PartType5"].create_dataset("ProtoStellarRadius_inSolar", data=np.array([2.])) #dummy value
         F["PartType5"].create_dataset("StarLuminosity_Solar", data=np.array([0.])) #dummy
-        F["PartType5"].create_dataset("Mass_D", data=np.array([M_BH*1e10/mass_unit])) #100% of D left
+        F["PartType5"].create_dataset("Mass_D", data=np.array([M_BH/mass_unit])) #100% of D left
 
     
 if magnetic_field > 0.0:
@@ -474,10 +475,10 @@ if makebox:
     F.create_group("Header")
     F["Header"].attrs["NumPart_ThisFile"] = [N_gas,0,0,0,0,0]
     F["Header"].attrs["NumPart_Total"] = [N_gas,0,0,0,0,0]
-    F["Header"].attrs["MassTable"] = [M_gas/N_gas*1e10/mass_unit,0,0,0,0,0]
-    F["Header"].attrs["BoxSize"] = (4 * np.pi * R**3 / 3)**(1./3)*1000 / length_unit
+    F["Header"].attrs["MassTable"] = [M_gas/N_gas/mass_unit,0,0,0,0,0]
+    F["Header"].attrs["BoxSize"] = (4 * np.pi * R**3 / 3)**(1./3) / length_unit
     F["Header"].attrs["Time"] = 0.0
-    F["PartType0"].create_dataset("Masses", data=mgas[:N_gas]*1e10/mass_unit)
+    F["PartType0"].create_dataset("Masses", data=mgas[:N_gas]/mass_unit)
     F["PartType0"].create_dataset("Coordinates", data = F["Header"].attrs["BoxSize"] * np.random.rand(N_gas,3))
     F["PartType0"].create_dataset("Velocities", data=np.zeros((N_gas,3)))
     F["PartType0"].create_dataset("ParticleIDs", data=1+np.arange(N_gas))
