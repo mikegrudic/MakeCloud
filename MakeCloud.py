@@ -156,14 +156,12 @@ if filename is None:
 #    print "Cloud density: ", (np.sum(mgas)*1e10/mass_unit/(4.0/3.0*3.141*(R*1000/length_unit)**3)), " M_sun/pc^3", '   ',  (np.sum(mgas)*1e10/mass_unit/(4.0/3.0*3.141*(R*1000/length_unit)**3)/24532.3*1e6), " mu^(-1) cm^(-3)" 
     #n_crit mased on assumption that dm=M_jeans, meaning that densest is still resolved by NJ particles
     delta_m = M_gas/mass_unit/N_gas
-    #rhocrit = 421/ delta_m**2
     rho_avg = 3*M_gas/(R)**3/(4*np.pi)
     softening = 3.11e-5 # ~6.5 AU, minimum sink radius is 2.8 times that (~18 AU)
     if fixed_ncrit:
         ncrit=fixed_ncrit
     else:
-        #ncrit = 8920 / delta_m**2 #1.0e11
-        ncrit = 9.45e9 * (delta_m/0.001)**(-2.0)
+        ncrit = min(9.45e9 * (delta_m/0.001)**(-2.0), 1e13) # capped at ~100x the opacity limit
     tff = 8.275e-3 * rho_avg**-0.5
     L = (4*np.pi*R**3/3)**(1./3) /length_unit# volume-equivalent box size
     vrms = (6/5 * G * M_gas / R)**0.5  / v_unit * turbulence**0.5
