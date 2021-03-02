@@ -61,7 +61,7 @@ HubbleParam             1.     % little 'h'; =1 for non-cosmological runs
 
 
 %----- Memory allocation
-MaxMemSize          3500    % sets maximum MPI process memory use in MByte
+MaxMemSize          2500    % sets maximum MPI process memory use in MByte
 PartAllocFactor     5.0     % memory load allowed for better cpu balance
 BufferSize          500     % in MByte
 

@@ -21,8 +21,8 @@ Options:
    --bturb=<f>          Magnetic energy as a fraction of the binding energy [default: 0.01]
    --bfixed=<f>         Magnetic field in magnitude in code units, used instaed of bturb if not set to zero [default: 0]
    --minmode=<N>        Minimum populated turbulent wavenumber for Gaussian initial velocity field, in units of pi/R [default: 2]
-   --turb_path=<name>   Path to store turbulent velocity fields so that we only need to generate them once [default: /my/home/directory/turb]
-   --glass_path=<name>  Contains the root path of the glass ic [default: /my/home/directory/glass_orig.npy]
+   --turb_path=<name>   Path to store turbulent velocity fields so that we only need to generate them once [default: /home1/03532/mgrudic/turb]
+   --glass_path=<name>  Contains the root path of the glass ic [default: /home1/03532/mgrudic/glass_orig.npy]
    --G=<f>              Gravitational constant in code units [default: 4300.71]
    --boxsize=<f>        Simulation box size
    --warmgas            Add warm ISM envelope in pressure equilibrium that fills the box with uniform density.
@@ -313,7 +313,7 @@ v *= np.sqrt(turbulence*ugrav/Eturb)
 v += np.cross(np.c_[np.zeros_like(omega),np.zeros_like(omega),omega], x)
 
 
-if ( (magnetic_field>0.0) or (bfixed>0) ) and turb_type != 'full':
+if turb_type != 'full':
     B = np.c_[np.zeros(N_gas), np.zeros(N_gas), np.ones(N_gas)]
     uB = np.sum(np.sum(B*B, axis=1) * (R*length_unit)**3 /N_gas) * 2.463e17 
     if (bfixed>0):
