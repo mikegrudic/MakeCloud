@@ -34,6 +34,8 @@ Options:
    --v_unit=<m/s>       Unit of velocity in m/s [default: 1]
    --sinkbox=<f>        Setup for light seeds in a turbulent box problem - parameter is the maximum seed mass in solar [default: 0.0]
    --turb_seed=<N>      Random seed for turbulence initialization [default: 42]
+   --tmax=<N>           Maximum time to run the simulation to, in units of the freefall time [default: 5]
+   --nsnap=<N>          Number of snapshots per freefall time [default: 150]
    --param_only         Just makes the parameters file, not the IC
    --fixed_ncrit=<f>    Fixes ncrit to a specific value [default: 0.0]
    --makebox            Creates a second box IC of equivalent volume and mass to the cloud
@@ -105,6 +107,8 @@ spin = float(arguments["--spin"])
 turbulence = float(arguments["--alpha_turb"])/2
 turb_type = arguments["--turb_type"]
 seed = int(float(arguments["--turb_seed"])+0.5)
+tmax = int(float(arguments["--tmax"]))
+nsnap = int(float(arguments["--nsnap"]))
 turb_sol = float(arguments["--turb_sol"])
 magnetic_field = float(arguments["--bturb"])
 bfixed = float(arguments["--bfixed"])
@@ -178,7 +182,7 @@ if filename is None:
 #    print "dx_min: ", ((np.sum(mgas)*1e10/mass_unit/(2.45e8*ncrit/1e10))**(1/3.0)), "T10^(-1) NJ(^2/3) mu^(4/3) pc"
     paramsfile = str(open(os.path.realpath(__file__).replace("MakeCloud.py","params.txt"), 'r').read())
 
-    replacements = {"NAME": filename.replace(".hdf5",""), "DTSNAP": tff/150, "MAXTIMESTEP": tff/300, "SOFTENING": softening, "GASSOFT": 2.0e-8, "TMAX": tff*5, "RHOMAX": ncrit, "BOXSIZE": boxsize/length_unit, "OUTFOLDER": "output", "WIND_PART_MASS": delta_m/10.0, "BH_SEED_MASS": delta_m/2.0 , "TURBDECAY": tcross/2, "TURBENERGY": turbenergy, "TURBFREQ": tcross/20, "TURB_KMIN": int(100 * 2*np.pi/L)/100., "TURB_KMAX": int(100*4*np.pi/(L)+1)/100.}
+    replacements = {"NAME": filename.replace(".hdf5",""), "DTSNAP": tff/nsnap, "MAXTIMESTEP": tff/(nsnap*2), "SOFTENING": softening, "GASSOFT": 2.0e-8, "TMAX": tff*tmax, "RHOMAX": ncrit, "BOXSIZE": boxsize/length_unit, "OUTFOLDER": "output", "WIND_PART_MASS": delta_m/10.0, "BH_SEED_MASS": delta_m/2.0 , "TURBDECAY": tcross/2, "TURBENERGY": turbenergy, "TURBFREQ": tcross/20, "TURB_KMIN": int(100 * 2*np.pi/L)/100., "TURB_KMAX": int(100*4*np.pi/(L)+1)/100.}
     
     for k in replacements.keys():
         paramsfile = paramsfile.replace(k, str(replacements[k])) 
