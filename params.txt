@@ -66,7 +66,7 @@ PartAllocFactor     5.0     % memory load allowed for better cpu balance
 BufferSize          500     % in MByte
 
 %---- Rebuild domains when >this fraction of particles active
-TreeDomainUpdateFrequency   0.005    % 0.0005-0.05, dept on core+particle number
+TreeDomainUpdateFrequency   0.01    % 0.0005-0.05, dept on core+particle number
 
 
 %---- (Optional) Initial hydro temperature & temperature floor (in Kelvin)
