@@ -339,7 +339,7 @@ x = r[:,np.newaxis]*np.c_[np.cos(phi)*np.sin(theta), np.sin(phi)*np.sin(theta), 
 if turb_type=='full':
     if not sinkbox:
         import meshoid
-        M = meshoid.meshoid(x,mgas)
+        M = meshoid.Meshoid(x,mgas)
         rho, h = M.Density(), M.SmoothingLength()
     else:
         rho = (32*mgas/(4*np.pi/3 * h**3))
