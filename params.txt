@@ -45,11 +45,11 @@ MinSizeTimestep         1.0e-15 % set this very low, or get the wrong answer
 
 
 %---- System of units
-UnitLength_in_cm            3.085678e18     % 1.0pc
-UnitMass_in_g               1.989e33          % solar mass
-UnitVelocity_in_cm_per_s    1.0e2           % 1 m/sec
-UnitMagneticField_in_gauss  1.0e4               % 1 Tesla
-GravityConstantInternal     0                % calculated by code if =0
+UnitLength_in_cm            UNIT_L      % should be 1 pc
+UnitMass_in_g               UNIT_M      % should be 1 solar mass
+UnitVelocity_in_cm_per_s    UNIT_V      % should be 1 m/sec
+UnitMagneticField_in_gauss  UNIT_B      % should be 1 Tesla
+GravityConstantInternal     0           % calculated by code if =0
 
 %---- Cosmological parameters
 ComovingIntegrationOn   0       % is it cosmological? (yes=1, no=0)
