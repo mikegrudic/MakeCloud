@@ -352,7 +352,7 @@ if turb_type=='full':
 #    uB = np.sum(np.sum(B*B, axis=1) * 4*np.pi/3 *h**3 /32 * 3.09e21**3)* 0.03979 *5.03e-54
     
 #print(x.mean(axis=0))
-u = np.ones_like(mgas)*0.101/2.0 #/2 needed because it is molecular
+u = np.ones_like(mgas)*(200/v_unit)**2 #start with specific internal energy of (200m/s)^2, this is overwritten unless starting with restart flag 2###### #0.101/2.0 #/2 needed because it is molecular
 if warmgas:
     # assuming 10K vs 10^4K gas: factor of ~10^3 density contrast
     rho_warm = M_gas*3/(4*np.pi*R**3) / 1000
@@ -367,18 +367,7 @@ if warmgas:
     Bmag = np.average(np.sum(B**2,axis=1))**0.5
     B = np.concatenate([B, np.repeat(Bmag,N_warm)[:,np.newaxis] * np.array([0,0,1])])
     mgas = np.concatenate([mgas, np.repeat(M_gas/N_gas,N_warm)])
-    u = np.concatenate([u, np.repeat(101.,N_warm)])
-    # old kludgy way of setting up diffuse medium with uniform B field; probably don't use this
-    # N_warm = int(warmgas*N_gas+0.5)
-    # sigma_warm = 2*R*10*warmgas**(1./3)
-    # x_warm = np.random.normal(size=(N_warm,3))*sigma_warm
-    # r_warm = np.sum(x_warm**2,axis=1)**0.5
-    # R_warm = np.sum(x_warm[:,:2]**2,axis=1)**0.5
-    # x = np.concatenate([x, x_warm])
-    # v = np.concatenate([v, np.zeros((N_warm,3))])
-    # Bmag = np.average(np.sum(B**2,axis=1))**0.5
-    # B = np.concatenate([B, Bmag * np.exp(-R_warm**2/(2*sigma_warm**2))[:,np.newaxis] * np.array([0,0,1])])
-    # mgas = np.concatenate([mgas, np.repeat(M_gas/N_gas,N_warm)])
+    u = np.concatenate([u, np.repeat(1000*((200/v_unit)**2),N_warm)])
 
 else:
     N_warm = 0
