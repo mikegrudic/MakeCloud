@@ -39,6 +39,8 @@ Options:
    --param_only         Just makes the parameters file, not the IC
    --fixed_ncrit=<f>    Fixes ncrit to a specific value [default: 0.0]
    --makebox            Creates a second box IC of equivalent volume and mass to the cloud
+   --makecylinder       Creates a third, cylindrical IC of equivalent volume and mass to the cloud
+   --cyl_aspect_ratio=<f>   Sets the aspect ratio of the cylinder, i.e. Length/Diameter [default: 10]
 """
 #Example:  python MakeCloud.py --M=1000 --N=1e7 --R=1.0 --localdir --warmgas --param_only
 
@@ -126,6 +128,8 @@ mass_unit = float(arguments["--mass_unit"])
 v_unit = float(arguments["--v_unit"])
 sinkbox = float(arguments["--sinkbox"])
 makebox = arguments["--makebox"]
+makecylinder = arguments["--makecylinder"]
+cyl_aspect_ratio=float(arguments["--cyl_aspect_ratio"])
 fixed_ncrit=float(arguments["--fixed_ncrit"])
 density_exponent=float(arguments["--density_exponent"])
 
@@ -190,13 +194,33 @@ if filename is None:
         paramsfile = paramsfile.replace(k, str(replacements[k])) 
     open("params_"+filename.replace(".hdf5","")+".txt", "w").write(paramsfile)
     if makebox:
-        replacements["NAME"] = filename.replace(".hdf5","_BOX")
-        replacements["BOXSIZE"] = L
-        replacements["TURB_MINLAMBDA"] = int(100*L/2)/100; replacements["TURB_MAXLAMBDA"] = int(100*L*2)/100;
+        replacements_box = replacements.copy()
+        replacements_box["NAME"] = filename.replace(".hdf5","_BOX")
+        replacements_box["BOXSIZE"] = L
+        replacements_box["TURB_MINLAMBDA"] = int(100*L/2)/100; replacements_box["TURB_MAXLAMBDA"] = int(100*L*2)/100;
         paramsfile = str(open(os.path.realpath(__file__).replace("MakeCloud.py","params.txt"), 'r').read())
-        for k in replacements.keys():
-            paramsfile = paramsfile.replace(k, str(replacements[k]))         
+        for k in replacements_box.keys():
+            paramsfile = paramsfile.replace(k, str(replacements_box[k]))         
         open("params_"+filename.replace(".hdf5","")+"_BOX.txt", "w").write(paramsfile)
+    if makecylinder:
+        #Get cylinder params
+        R_cyl = R * (0.6666/cyl_aspect_ratio)**(1/3) #volume equivalent cylinder
+        L_cyl = R_cyl*2*cyl_aspect_ratio
+        boxsize_cyl = L_cyl*1.1+R_cyl*10 #the box should fit the cylinder and be many times bigger than its width
+        print("Cylinder params: L=%g R=%g boxsize=%g"%(L_cyl,R_cyl,boxsize_cyl))
+        replacements_cyl = replacements.copy()
+        replacements_cyl["NAME"] = filename.replace(".hdf5","_CYL")
+        replacements_cyl["BOXSIZE"] = boxsize_cyl
+        replacements_cyl["TURB_MINLAMBDA"] = int(100*L_cyl/2)/100; replacements_cyl["TURB_MAXLAMBDA"] = int(100*L_cyl*2)/100;
+        paramsfile = str(open(os.path.realpath(__file__).replace("MakeCloud.py","params.txt"), 'r').read())
+        for k in replacements_cyl.keys():
+            paramsfile = paramsfile.replace(k, str(replacements_cyl[k]))         
+        open("params_"+filename.replace(".hdf5","")+"_CYL.txt", "w").write(paramsfile)
+        
+        
+        
+        
+        
 if param_only:
     print('Parameters only run, exiting...')
     exit()
@@ -337,8 +361,19 @@ theta = np.arccos(x[:,2]/r)
 phi += phimode*np.sin(2*phi)/2
 x = r[:,np.newaxis]*np.c_[np.cos(phi)*np.sin(theta), np.sin(phi)*np.sin(theta), np.cos(theta)]
 
+if makecylinder:
+    def ind_in_cylinder(x,L_cyl,R_cyl):
+        return ( (np.abs(x[:,0]) < L_cyl/2) & ( np.sum(x[:,1:]**2,axis=1)<R_cyl**2 ) )
+    #Just get a roughly homogeneous cylinder along the x axis, we will stir it anyway
+    N_cyl=0
+    while N_cyl<=N_gas: #should be very unlikely that we need to repeat, but let's check to be sure
+        x_cyl = np.random.rand(2*N_gas,3)*2 - 1
+        x_cyl[:,0] *= L_cyl/2; x_cyl[:,1] *= R_cyl; x_cyl[:,2] *= R_cyl
+        x_cyl = x_cyl[ind_in_cylinder(x_cyl,L_cyl,R_cyl)]
+        N_cyl = len(x_cyl)
+        #print("N_cyl: %g N_gas: %g"%(N_cyl,N_gas))
+    x_cyl = x_cyl[:N_gas] #keep only the right amount of gas
 
-#print(h)
 if turb_type=='full':
     if not sinkbox:
         import meshoid
@@ -368,6 +403,17 @@ if warmgas:
     B = np.concatenate([B, np.repeat(Bmag,N_warm)[:,np.newaxis] * np.array([0,0,1])])
     mgas = np.concatenate([mgas, np.repeat(M_gas/N_gas,N_warm)])
     u = np.concatenate([u, np.repeat(1000*((200/v_unit)**2),N_warm)])
+    if makecylinder:
+        #The magnetic field is paralell to the cylinder (true at low densities, so probably fine for IC)
+        B_cyl = np.concatenate([B, np.repeat(Bmag,N_warm)[:,np.newaxis] * np.array([1,0,0])])
+        #Add diffuse medium
+        M_warm_cyl = (boxsize_cyl**3 - (4*np.pi*R**3 / 3)) * rho_warm
+        N_warm_cyl = int(M_warm_cyl/(M_gas/N_gas))
+        x_warm = boxsize_cyl*np.random.rand(N_warm_cyl, 3) - boxsize_cyl/2 #will be recentered later
+        x_warm = x_warm[ ~ind_in_cylinder(x_warm,L_cyl,R_cyl) ] #keep only warm gas outside the cylinder
+        #print("N_warm_cyl: %g N_warm_cyl_kept %g "%(N_warm_cyl,len(x_warm)))
+        N_warm_cyl = len(x_warm)
+        x_cyl = np.concatenate([x_cyl, x_warm])
 
 else:
     N_warm = 0
@@ -378,9 +424,9 @@ if turb_type!='full':
     if warmgas: rho[-N_warm:] /= 1000
     h = (32*mgas/rho)**(1./3)
 
-#if (arguments["--boxsize"] is not None or arguments["--warmgas"]) or sinkbox:
-
 x += boxsize/2 # cloud is always centered at (boxsize/2,boxsize/2,boxsize/2)
+if makecylinder:
+    x_cyl += boxsize_cyl/2
 
 if sinkbox:
     m_min = M_gas/N_gas * 10
@@ -476,6 +522,26 @@ if makebox:
     F["PartType0"].create_dataset("Coordinates", data = F["Header"].attrs["BoxSize"] * np.random.rand(N_gas,3))
     F["PartType0"].create_dataset("Velocities", data=np.zeros((N_gas,3)))
     F["PartType0"].create_dataset("ParticleIDs", data=1+np.arange(N_gas))
+    F["PartType0"].create_dataset("InternalEnergy", data=u[:N_gas]*(1/v_unit)**2)
     if magnetic_field > 0.0:
         F["PartType0"].create_dataset("MagneticField", data=B[:N_gas]/B_unit)
     F.close()
+    
+if makecylinder:
+    F=h5py.File(filename.replace(".hdf5","_CYL.hdf5"), 'w')
+    F.create_group("PartType0")
+    F.create_group("Header")
+    F["Header"].attrs["NumPart_ThisFile"] = [N_gas+N_warm_cyl,0,0,0,0,0]
+    F["Header"].attrs["NumPart_Total"] = [N_gas+N_warm_cyl,0,0,0,0,0]
+    F["Header"].attrs["MassTable"] = [M_gas/N_gas/mass_unit,0,0,0,0,0]
+    F["Header"].attrs["BoxSize"] = boxsize_cyl / length_unit
+    F["Header"].attrs["Time"] = 0.0
+    F["PartType0"].create_dataset("Masses", data=mgas/mass_unit)
+    F["PartType0"].create_dataset("Coordinates", data = x_cyl/length_unit)
+    F["PartType0"].create_dataset("Velocities", data = np.zeros((N_gas+N_warm_cyl,3)))
+    F["PartType0"].create_dataset("ParticleIDs", data=1+np.arange(N_gas+N_warm_cyl))
+    F["PartType0"].create_dataset("InternalEnergy", data=u*(1/v_unit)**2)
+    if magnetic_field > 0.0:
+        F["PartType0"].create_dataset("MagneticField", data=B_cyl/B_unit)
+    F.close()
+
