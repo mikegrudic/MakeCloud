@@ -206,19 +206,19 @@ if filename is None:
         #Get cylinder params
         R_cyl = R * (0.6666/cyl_aspect_ratio)**(1/3) #volume equivalent cylinder
         L_cyl = R_cyl*2*cyl_aspect_ratio
-        vrms_cyl = (2 * G * M_gas / L_cyl)**0.5  / v_unit * turbulence**0.5 #vrms is different for a cylinder than for a sphere, so we need to rescale vrms to get the right alpha, using E_grav_cyl = -GM**2/L
+        vrms_cyl = (2 * G * M_gas / L_cyl)**0.5  / v_unit * turbulence**0.5 #the potential is different for a cylinder than for a sphere, so we need to rescale vrms to get the right alpha, using E_grav_cyl = -GM**2/L
         tcross_cyl = L_cyl/vrms_cyl
         boxsize_cyl = L_cyl*1.1+R_cyl*10 #the box should fit the cylinder and be many times bigger than its width
-        print("Cylinder params: L=%g R=%g boxsize=%g"%(L_cyl,R_cyl,boxsize_cyl))
+        print("Cylinder params: L=%g R=%g boxsize=%g vrms=%g"%(L_cyl,R_cyl,boxsize_cyl,vrms_cyl))
         replacements_cyl = replacements.copy()
         replacements_cyl["NAME"] = filename.replace(".hdf5","_CYL")
         replacements_cyl["BOXSIZE"] = boxsize_cyl/length_unit
         #New driving params
-        replacements_cyl["TURB_MINLAMBDA"] = int(100*L_cyl/2)/100; replacements_cyl["TURB_MAXLAMBDA"] = int(100*L_cyl*2)/100;
+        replacements_cyl["TURB_MINLAMBDA"] = int(100*R_cyl/2)/100; replacements_cyl["TURB_MAXLAMBDA"] = int(100*R_cyl*2)/100;
         replacements_cyl["TURB_SIGMA"] = vrms_cyl; replacements_cyl["TURB_COHERENCE_TIME"] = tcross_cyl/2; 
         #Legacy driving params, probably needs tuning
-        replacements_cyl["TURBDECAY"] = tcross_cyl/2; replacements_cyl["TURBENERGY"] = 0.019111097819633344*vrms_cyl**3/L_cyl; replacements_cyl["TURBFREQ"] = tcross_cyl/20;
-        replacements_cyl["TURB_KMIN"] = int(100 * 2*np.pi/L_cyl)/100.; replacements_cyl["TURB_KMAX"] = int(100*4*np.pi/(L_cyl)+1)/100.;
+        replacements_cyl["TURBDECAY"] = tcross_cyl/2; replacements_cyl["TURBENERGY"] = 0.019111097819633344*vrms_cyl**3/R_cyl; replacements_cyl["TURBFREQ"] = tcross_cyl/20;
+        replacements_cyl["TURB_KMIN"] = int(100 * 2*np.pi/R_cyl)/100.; replacements_cyl["TURB_KMAX"] = int(100*4*np.pi/(R_cyl)+1)/100.;
         paramsfile = str(open(os.path.realpath(__file__).replace("MakeCloud.py","params.txt"), 'r').read())
         for k in replacements_cyl.keys():
             paramsfile = paramsfile.replace(k, str(replacements_cyl[k]))         
