@@ -207,7 +207,7 @@ if filename is None:
         R_cyl = R * (0.6666/cyl_aspect_ratio)**(1/3) #volume equivalent cylinder
         L_cyl = R_cyl*2*cyl_aspect_ratio
         vrms_cyl = (2 * G * M_gas / L_cyl)**0.5  / v_unit * turbulence**0.5 #the potential is different for a cylinder than for a sphere, so we need to rescale vrms to get the right alpha, using E_grav_cyl = -GM**2/L
-        tcross_cyl = L_cyl/vrms_cyl
+        tcross_cyl = R_cyl/vrms_cyl
         boxsize_cyl = L_cyl*1.1+R_cyl*10 #the box should fit the cylinder and be many times bigger than its width
         print("Cylinder params: L=%g R=%g boxsize=%g vrms=%g"%(L_cyl,R_cyl,boxsize_cyl,vrms_cyl))
         replacements_cyl = replacements.copy()
@@ -380,6 +380,9 @@ if makecylinder:
         N_cyl = len(x_cyl)
         #print("N_cyl: %g N_gas: %g"%(N_cyl,N_gas))
     x_cyl = x_cyl[:N_gas] #keep only the right amount of gas
+    #Let's add some initial velocity to make the driving phase shorter, let's start with a rotational component
+    v_cyl = np.cross([1,0,0],x_cyl,axis=-1); v_cyl /= np.linalg.norm(v_cyl,axis=-1)[:,None] # normalized tangential 
+    v_cyl *= vrms_cyl
 
 if turb_type=='full':
     if not sinkbox:
@@ -421,6 +424,7 @@ if warmgas:
         #print("N_warm_cyl: %g N_warm_cyl_kept %g "%(N_warm_cyl,len(x_warm)))
         N_warm_cyl = len(x_warm)
         x_cyl = np.concatenate([x_cyl, x_warm])
+        v_cyl = np.concatenate([v_cyl, np.zeros((N_warm,3))])
 
 else:
     N_warm = 0
@@ -545,7 +549,8 @@ if makecylinder:
     F["Header"].attrs["Time"] = 0.0
     F["PartType0"].create_dataset("Masses", data=mgas/mass_unit)
     F["PartType0"].create_dataset("Coordinates", data = x_cyl/length_unit)
-    F["PartType0"].create_dataset("Velocities", data = np.zeros((N_gas+N_warm_cyl,3)))
+    #F["PartType0"].create_dataset("Velocities", data = np.random.randn(N_gas+N_warm_cyl,3)*vrms_cyl/v_unit) #shouldn't matter
+    F["PartType0"].create_dataset("Velocities", data=v_cyl/v_unit)
     F["PartType0"].create_dataset("ParticleIDs", data=1+np.arange(N_gas+N_warm_cyl))
     F["PartType0"].create_dataset("InternalEnergy", data=u*(1/v_unit)**2)
     if magnetic_field > 0.0:
