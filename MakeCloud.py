@@ -207,14 +207,14 @@ if filename is None:
         R_cyl = R * (0.6666/cyl_aspect_ratio)**(1/3) #volume equivalent cylinder
         L_cyl = R_cyl*2*cyl_aspect_ratio
         vrms_cyl = (2 * G * M_gas / L_cyl)**0.5  / v_unit * turbulence**0.5 #the potential is different for a cylinder than for a sphere, so we need to rescale vrms to get the right alpha, using E_grav_cyl = -GM**2/L
-        tcross_cyl = R_cyl/vrms_cyl
-        boxsize_cyl = L_cyl*1.1+R_cyl*10 #the box should fit the cylinder and be many times bigger than its width
+        tcross_cyl = 2*R_cyl/vrms_cyl
+        boxsize_cyl = L_cyl*1.1+R_cyl*5 #the box should fit the cylinder and be many times bigger than its width
         print("Cylinder params: L=%g R=%g boxsize=%g vrms=%g"%(L_cyl,R_cyl,boxsize_cyl,vrms_cyl))
         replacements_cyl = replacements.copy()
         replacements_cyl["NAME"] = filename.replace(".hdf5","_CYL")
         replacements_cyl["BOXSIZE"] = boxsize_cyl/length_unit
         #New driving params
-        replacements_cyl["TURB_MINLAMBDA"] = int(100*R_cyl/2)/100; replacements_cyl["TURB_MAXLAMBDA"] = int(100*R_cyl*2)/100;
+        replacements_cyl["TURB_MINLAMBDA"] = int(100*R_cyl)/100; replacements_cyl["TURB_MAXLAMBDA"] = int(100*R_cyl*4)/100;
         replacements_cyl["TURB_SIGMA"] = vrms_cyl; replacements_cyl["TURB_COHERENCE_TIME"] = tcross_cyl/2; 
         #Legacy driving params, probably needs tuning
         replacements_cyl["TURBDECAY"] = tcross_cyl/2; replacements_cyl["TURBENERGY"] = 0.019111097819633344*vrms_cyl**3/R_cyl; replacements_cyl["TURBFREQ"] = tcross_cyl/20;
@@ -381,7 +381,7 @@ if makecylinder:
         #print("N_cyl: %g N_gas: %g"%(N_cyl,N_gas))
     x_cyl = x_cyl[:N_gas] #keep only the right amount of gas
     #Let's add some initial velocity to make the driving phase shorter, let's start with a rotational component
-    v_cyl = np.cross([1,0,0],x_cyl,axis=-1); v_cyl /= np.linalg.norm(v_cyl,axis=-1)[:,None] # normalized tangential 
+    v_cyl = np.cross([1,0,0],x_cyl,axis=-1)/R_cyl; # tangential with magnitude increasing linearly
     v_cyl *= vrms_cyl
 
 if turb_type=='full':
