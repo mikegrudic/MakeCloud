@@ -207,7 +207,7 @@ if filename is None:
         R_cyl = R * (0.6666/cyl_aspect_ratio)**(1/3) #volume equivalent cylinder
         L_cyl = R_cyl*2*cyl_aspect_ratio
         vrms_cyl = (2 * G * M_gas / L_cyl)**0.5  / v_unit * turbulence**0.5 #the potential is different for a cylinder than for a sphere, so we need to rescale vrms to get the right alpha, using E_grav_cyl = -GM**2/L
-        v_rms_cyl *= 2.0/3.0 #additional scaling found numerically to make the stirring run reproduce the right alpha and filament length (similarly determined numerical factor added to GIZMO)
+        vrms_cyl *= 2.0/3.0 #additional scaling found numerically to make the stirring run reproduce the right alpha and filament length (similarly determined numerical factor added to GIZMO)
         tcross_cyl = 2*R_cyl/vrms_cyl
         boxsize_cyl = L_cyl*1.1+R_cyl*5 #the box should fit the cylinder and be many times bigger than its width
         print("Cylinder params: L=%g R=%g boxsize=%g vrms=%g"%(L_cyl,R_cyl,boxsize_cyl,vrms_cyl))
