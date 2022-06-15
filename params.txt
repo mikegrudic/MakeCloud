@@ -45,11 +45,11 @@ MinSizeTimestep         1.0e-15 % set this very low, or get the wrong answer
 
 
 %---- System of units
-UnitLength_in_cm            3.085678e18     % 1.0pc
-UnitMass_in_g               1.989e33          % solar mass
-UnitVelocity_in_cm_per_s    1.0e2           % 1 m/sec
-UnitMagneticField_in_gauss  1.0e4               % 1 Tesla
-GravityConstantInternal     0                % calculated by code if =0
+UnitLength_in_cm            UNIT_L      % should be 1 pc
+UnitMass_in_g               UNIT_M      % should be 1 solar mass
+UnitVelocity_in_cm_per_s    UNIT_V      % should be 1 m/sec
+UnitMagneticField_in_gauss  UNIT_B      % should be 1 Tesla
+GravityConstantInternal     0           % calculated by code if =0
 
 %---- Cosmological parameters
 ComovingIntegrationOn   0       % is it cosmological? (yes=1, no=0)
@@ -232,18 +232,29 @@ GrackleDataFile		     CloudyData_UVB=HM2012.h5
 %------------------ Driven Turbulence (Large-Eddy boxes) -----------------
 %-------------------------------------------------------------------------
 
+%-------------- Legacy Turbulent stirring parameters (TURB_DRIVING on)
+%ST_decay       TURBDECAY	    % decay time for driving-mode phase correlations
+%ST_energy      TURBENERGY   % energy of driving-scale modes: sets norm of turb
+%ST_DtFreq      TURBFREQ    % time interval for driving updates (set by hand)
+%ST_Kmin        TURB_KMIN     % minimum driving-k: should be >=2.*M_PI/All.BoxSize
+%ST_Kmax        TURB_KMAX    % maximum driving-k: set to couple times Kmin or more if cascade desired
+%ST_SolWeight   1.0      % fractional wt of solenoidal modes (wt*curl + (1-wt)*div)
+%ST_AmplFac     1.0      % multiplies turb amplitudes
+%ST_SpectForm   3        % driving pwr-spec: 0=Ek~const; 1=sharp-peak at kc; 2=Ek~k^(-5/3); 3=Ek~k^-2
+%ST_Seed        42       % random number seed for modes (so you can reproduce it)
+%IsoSoundSpeed  200.      % initializes gas sound speed in box to this value
+%TimeBetTurbSpectrum DTSNAP % time (code units) between evaluations of turb pwrspec
+
 %-------------- Turbulent stirring parameters (TURB_DRIVING on)
-ST_decay       TURBDECAY	    % decay time for driving-mode phase correlations
-ST_energy      TURBENERGY   % energy of driving-scale modes: sets norm of turb
-ST_DtFreq      TURBFREQ    % time interval for driving updates (set by hand)
-ST_Kmin        TURB_KMIN     % minimum driving-k: should be >=2.*M_PI/All.BoxSize
-ST_Kmax        TURB_KMAX    % maximum driving-k: set to couple times Kmin or more if cascade desired
-ST_SolWeight   1.0      % fractional wt of solenoidal modes (wt*curl + (1-wt)*div)
-ST_AmplFac     1.0      % multiplies turb amplitudes
-ST_SpectForm   3        % driving pwr-spec: 0=Ek~const; 1=sharp-peak at kc; 2=Ek~k^(-5/3); 3=Ek~k^-2
-ST_Seed        42       % random number seed for modes (so you can reproduce it)
-IsoSoundSpeed  200.      % initializes gas sound speed in box to this value
-TimeBetTurbSpectrum DTSNAP % time (code units) between evaluations of turb pwrspec
+TurbDrive_ApproxRMSVturb            TURB_SIGMA
+TurbDrive_MinWavelength             TURB_MINLAMBDA 
+TurbDrive_MaxWavelength             TURB_MAXLAMBDA 
+TurbDrive_SolenoidalFraction        1  
+TurbDrive_CoherenceTime             TURB_COHERENCE_TIME
+TurbDrive_DrivingSpectrum           1
+TurbDrive_RandomNumberSeed          42
+TurbDrive_TimeBetweenTurbUpdates    DTSNAP
+TurbDrive_TimeBetTurbSpectrum       DTSNAP
 
 
 %-------------------------------------------------------------------------------------------------
