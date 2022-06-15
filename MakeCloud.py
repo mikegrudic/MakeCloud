@@ -39,6 +39,9 @@ Options:
    --param_only         Just makes the parameters file, not the IC
    --fixed_ncrit=<f>    Fixes ncrit to a specific value [default: 0.0]
    --makebox            Creates a second box IC of equivalent volume and mass to the cloud
+   --impact_dist=<b>    Initial separation between cloud centers of mass in units of the cloud radius  (0 is no cloud-cloud collision) [default: 0.0]
+   --impact_param=<b>   Impact parameter of cloud-cloud collision in units of the cloud radius [default: 0.0]
+   --v_impact=<v>       Impact velocity, in units of the cloud's RMS turbulent velocity [default: 1.0]
 """
 #Example:  python MakeCloud.py --M=1000 --N=1e7 --R=1.0 --localdir --warmgas --param_only
 
@@ -126,6 +129,9 @@ mass_unit = float(arguments["--mass_unit"])
 v_unit = float(arguments["--v_unit"])
 sinkbox = float(arguments["--sinkbox"])
 makebox = arguments["--makebox"]
+impact_param = float(arguments["--impact_param"])
+impact_dist = float(arguments["--impact_dist"])
+v_impact = float(arguments["--v_impact"])
 fixed_ncrit=float(arguments["--fixed_ncrit"])
 density_exponent=float(arguments["--density_exponent"])
 
@@ -153,7 +159,7 @@ res_effective = int(N_gas**(1.0/3.0)+0.5)
 phimode=float(arguments["--phimode"])
 
 if filename is None:
-    filename = "M%3.2g_"%(M_gas) + ("MBH%g_"%(M_BH) if M_BH>0 else "") + ("rho_exp%g_"%(-density_exponent) if density_exponent<0 else "") + "R%g_S%g_T%g_B%g_Res%d_n%d_sol%g"%(R,spin,turbulence,magnetic_field,res_effective,minmode,turb_sol) +  ("_%d"%seed) + ("_SN" if central_SN else "") + ".hdf5"
+    filename = "M%3.2g_"%(M_gas) + ("MBH%g_"%(M_BH) if M_BH>0 else "") + ("rho_exp%g_"%(-density_exponent) if density_exponent<0 else "") + "R%g_S%g_T%g_B%g_Res%d_n%d_sol%g"%(R,spin,turbulence,magnetic_field,res_effective,minmode,turb_sol) +  ("_%d"%seed) + ("_SN" if central_SN else "") + ("_collision_%g_%g_%g"%(impact_dist,impact_param,v_impact) if impact_dist>0 else "") + ".hdf5"
     filename = filename.replace("+","").replace('e0','e')
     filename = "".join(filename.split())
     
@@ -298,6 +304,8 @@ else:
         v = np.array(v).T
     print("Coordinates obtained!")
 #x += np.random.normal(size=(N_gas,3))*R/20
+
+    
         
 Mr = M_BH + mgas.cumsum()
 if sinkbox:
@@ -347,9 +355,25 @@ if turb_type=='full':
     beta = np.sum(0.5*mgas*np.sum(v**2,axis=1))/uB
     B *= np.sqrt(beta/plasma_beta)
 #    uB = np.sum(np.sum(B*B, axis=1) * 4*np.pi/3 *h**3 /32 * 3.09e21**3)* 0.03979 *5.03e-54
-    
+     
 #print(x.mean(axis=0))
 u = np.ones_like(mgas)*0.101/2.0 #/2 needed because it is molecular
+
+if impact_dist > 0:     
+    x = np.concatenate([x,x])
+    x[:N_gas,0] += impact_dist*R
+    x[N_gas:,0] -= impact_dist*R
+    x[:N_gas,1] += 0.5 * impact_param * R
+    x[N_gas:,1] -= 0.5 * impact_param * R
+    v = np.concatenate([v,v])
+    vrms = np.sum(v**2,axis=1).mean()**0.5
+    v[:N_gas,0] -= v_impact * vrms
+    v[N_gas:,0] += v_impact * vrms
+    B = np.concatenate([B,B])
+    u = np.concatenate([u,u])
+    mgas = np.concatenate([mgas,mgas])
+    
+
 if warmgas:
     # assuming 10K vs 10^4K gas: factor of ~10^3 density contrast
     rho_warm = M_gas*3/(4*np.pi*R**3) / 1000
@@ -357,13 +381,13 @@ if warmgas:
     N_warm = int(M_warm/(M_gas/N_gas))
 #    print(N_warm)
     x_warm = boxsize*np.random.rand(N_warm, 3) - boxsize/2
-    x_warm = x_warm[np.sum(x_warm**2,axis=1) > R**2]
+    if impact_dist == 0: x_warm = x_warm[np.sum(x_warm**2,axis=1) > R**2]
     N_warm = len(x_warm)
     x = np.concatenate([x, x_warm])
     v = np.concatenate([v, np.zeros((N_warm,3))])
     Bmag = np.average(np.sum(B**2,axis=1))**0.5
     B = np.concatenate([B, np.repeat(Bmag,N_warm)[:,np.newaxis] * np.array([0,0,1])])
-    mgas = np.concatenate([mgas, np.repeat(M_gas/N_gas,N_warm)])
+    mgas = np.concatenate([mgas, np.repeat(mgas.sum()/len(mgas),N_warm)])
     u = np.concatenate([u, np.repeat(101.,N_warm)])
     # old kludgy way of setting up diffuse medium with uniform B field; probably don't use this
     # N_warm = int(warmgas*N_gas+0.5)
@@ -410,18 +434,18 @@ print("Writing snapshot...")
 F=h5py.File(filename, 'w')
 F.create_group("PartType0")
 F.create_group("Header")
-F["Header"].attrs["NumPart_ThisFile"] = [N_gas+N_warm,0,0,0,0,(1 if M_BH>0 else 0)]
-F["Header"].attrs["NumPart_Total"] = [N_gas+N_warm,0,0,0,0,(1 if M_BH>0 else 0)]
-F["Header"].attrs["MassTable"] = [M_gas/N_gas/mass_unit,0,0,0,0, M_BH/mass_unit]
+F["Header"].attrs["NumPart_ThisFile"] = [len(mgas),0,0,0,0,(1 if M_BH>0 else 0)]
+F["Header"].attrs["NumPart_Total"] = [len(mgas),0,0,0,0,(1 if M_BH>0 else 0)]
+F["Header"].attrs["MassTable"] = [mgas.mean()/mass_unit,0,0,0,0, M_BH/mass_unit]
 F["Header"].attrs["BoxSize"] = boxsize/length_unit
 F["Header"].attrs["Time"] = 0.0
 F["PartType0"].create_dataset("Masses", data=mgas/mass_unit)
 F["PartType0"].create_dataset("Coordinates", data=x/length_unit)
 F["PartType0"].create_dataset("Velocities", data=v/v_unit)
-F["PartType0"].create_dataset("ParticleIDs", data=1+np.arange(N_gas+N_warm)+(1 if M_BH>0 else 0))
+F["PartType0"].create_dataset("ParticleIDs", data=1+np.arange(len(mgas))+(1 if M_BH>0 else 0))
 F["PartType0"].create_dataset("InternalEnergy", data=u*(1/v_unit)**2)
-F["PartType0"].create_dataset("Density", data=rho/mass_unit/(1/length_unit)**3)
-F["PartType0"].create_dataset("SmoothingLength", data=h*1/length_unit)
+#F["PartType0"].create_dataset("Density", data=rho/mass_unit/(1/length_unit)**3)
+#F["PartType0"].create_dataset("SmoothingLength", data=h*1/length_unit)
 if M_BH>0:
     F.create_group("PartType5")
     #Let's add the sink at the center
@@ -468,22 +492,25 @@ if sinkbox:
     F["PartType5"].create_dataset("Masses", data=m_sinks)
     F["PartType5"].create_dataset("Coordinates", data=x_sinks)
     F["PartType5"].create_dataset("Velocities", data=v_sinks)
-    F["PartType5"].create_dataset("ParticleIDs", data=np.arange(N_gas+N_warm, N_gas+N_warm+N_sinks))
+    F["PartType5"].create_dataset("ParticleIDs", data=np.arange(len(mgas), len(mgas)+N_sinks))
 F.close()
 
 if makebox:
     F=h5py.File(filename.replace(".hdf5","_BOX.hdf5"), 'w')
     F.create_group("PartType0")
     F.create_group("Header")
-    F["Header"].attrs["NumPart_ThisFile"] = [N_gas,0,0,0,0,0]
-    F["Header"].attrs["NumPart_Total"] = [N_gas,0,0,0,0,0]
-    F["Header"].attrs["MassTable"] = [M_gas/N_gas/mass_unit,0,0,0,0,0]
+    F["Header"].attrs["NumPart_ThisFile"] = [len(mgas),0,0,0,0,0]
+    F["Header"].attrs["NumPart_Total"] = [len(mgas),0,0,0,0,0]
+    F["Header"].attrs["MassTable"] = [M_gas/len(mgas)/mass_unit,0,0,0,0,0]
     F["Header"].attrs["BoxSize"] = (4 * np.pi * R**3 / 3)**(1./3) / length_unit
     F["Header"].attrs["Time"] = 0.0
-    F["PartType0"].create_dataset("Masses", data=mgas[:N_gas]/mass_unit)
-    F["PartType0"].create_dataset("Coordinates", data = F["Header"].attrs["BoxSize"] * np.random.rand(N_gas,3))
-    F["PartType0"].create_dataset("Velocities", data=np.zeros((N_gas,3)))
-    F["PartType0"].create_dataset("ParticleIDs", data=1+np.arange(N_gas))
+    F["PartType0"].create_dataset("Masses", data=mgas[:len(mgas)]/mass_unit)
+    F["PartType0"].create_dataset("Coordinates", data = F["Header"].attrs["BoxSize"] )
+    F["PartType0"].create_dataset("Velocities", data=np.zeros((len(mgas),3)))
+    F["PartType0"].create_dataset("ParticleIDs", data=1+np.arange(len(mgas)))
+    F["PartType0"].create_dataset("InternalEnergy", data=u*(1/v_unit)**2)
+#    F["PartType0"].create_dataset("Density", data=rho/mass_unit/(1/length_unit)**3)
+#    F["PartType0"].create_dataset("SmoothingLength", data=h*1/length_unit)
     if magnetic_field > 0.0:
-        F["PartType0"].create_dataset("MagneticField", data=B[:N_gas]/B_unit)
+        F["PartType0"].create_dataset("MagneticField", data=B[:len(mgas)]/B_unit)
     F.close()
