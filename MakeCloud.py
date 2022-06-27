@@ -18,7 +18,7 @@ Options:
    --turb_type=<s>      Type of initial turbulent velocity (and possibly density field): 'gaussian' or 'full' [default: gaussian]
    --turb_sol=<f>       Fraction of turbulence in solenoidal modes, used when turb_type is 'gaussian' [default: 0.5]
    --alpha_turb=<f>     Turbulent virial parameter (BM92 convention: 2Eturb/|Egrav|) [default: 2.]
-   --bturb=<f>          Magnetic energy as a fraction of the binding energy [default: 0.01]
+   --bturb=<f>          Magnetic energy as a fraction of the binding energy [default: 0.1]
    --bfixed=<f>         Magnetic field in magnitude in code units, used instaed of bturb if not set to zero [default: 0]
    --minmode=<N>        Minimum populated turbulent wavenumber for Gaussian initial velocity field, in units of pi/R [default: 2]
    --turb_path=<name>   Path to store turbulent velocity fields so that we only need to generate them once [default: /home1/03532/mgrudic/turb]
@@ -42,6 +42,7 @@ Options:
    --impact_dist=<b>    Initial separation between cloud centers of mass in units of the cloud radius  (0 is no cloud-cloud collision) [default: 0.0]
    --impact_param=<b>   Impact parameter of cloud-cloud collision in units of the cloud radius [default: 0.0]
    --v_impact=<v>       Impact velocity, in units of the cloud's RMS turbulent velocity [default: 1.0]
+   --impact_axis=<x>    Axis along which collision occurs (z is along magnetic field lines) [default: x]
    --makecylinder       Creates a third, cylindrical IC of equivalent volume and mass to the cloud
    --cyl_aspect_ratio=<f>   Sets the aspect ratio of the cylinder, i.e. Length/Diameter [default: 10]
 """
@@ -134,6 +135,7 @@ makebox = arguments["--makebox"]
 impact_param = float(arguments["--impact_param"])
 impact_dist = float(arguments["--impact_dist"])
 v_impact = float(arguments["--v_impact"])
+impact_axis = arguments["--impact_axis"]
 makecylinder = arguments["--makecylinder"]
 cyl_aspect_ratio=float(arguments["--cyl_aspect_ratio"])
 fixed_ncrit=float(arguments["--fixed_ncrit"])
@@ -163,7 +165,7 @@ res_effective = int(N_gas**(1.0/3.0)+0.5)
 phimode=float(arguments["--phimode"])
 
 if filename is None:
-    filename = "M%3.2g_"%(M_gas) + ("MBH%g_"%(M_BH) if M_BH>0 else "") + ("rho_exp%g_"%(-density_exponent) if density_exponent<0 else "") + "R%g_S%g_T%g_B%g_Res%d_n%d_sol%g"%(R,spin,turbulence,magnetic_field,res_effective,minmode,turb_sol) +  ("_%d"%seed) + ("_SN" if central_SN else "") + ("_collision_%g_%g_%g"%(impact_dist,impact_param,v_impact) if impact_dist>0 else "") + ".hdf5"
+    filename = "M%3.2g_"%(M_gas) + ("MBH%g_"%(M_BH) if M_BH>0 else "") + ("rho_exp%g_"%(-density_exponent) if density_exponent<0 else "") + "R%g_S%g_T%g_B%g_Res%d_n%d_sol%g"%(R,spin,turbulence,magnetic_field,res_effective,minmode,turb_sol) +  ("_%d"%seed) + ("_SN" if central_SN else "") + ("_collision_%g_%g_%g_%s"%(impact_dist,impact_param,v_impact,impact_axis) if impact_dist>0 else "") + ".hdf5"
     filename = filename.replace("+","").replace('e0','e')
     filename = "".join(filename.split())
     
@@ -411,14 +413,16 @@ u = np.ones_like(mgas)*0.101/2.0 #/2 needed because it is molecular
 
 if impact_dist > 0:     
     x = np.concatenate([x,x])
-    x[:N_gas,0] += impact_dist*R
-    x[N_gas:,0] -= impact_dist*R
-    x[:N_gas,1] += 0.5 * impact_param * R
-    x[N_gas:,1] -= 0.5 * impact_param * R
+    impact_dir = {"x": np.array([1.,0,0]), "y": np.array([0,1,0]), 'z': np.array([0,0,1])}[impact_axis]
+    impact_param_dir = {"x": np.array([0,1,0]), "y": np.array([0,0,1]), 'z': np.array([1,0,0])}[impact_axis]
+    x[:N_gas] += impact_dist * R * impact_dir
+    x[N_gas:] -= impact_dist * R * impact_dir
+    x[:N_gas] += 0.5 * impact_param * R * impact_param_dir
+    x[N_gas:] -= 0.5 * impact_param * R * impact_param_dir
     v = np.concatenate([v,v])
     vrms = np.sum(v**2,axis=1).mean()**0.5
-    v[:N_gas,0] -= v_impact * vrms
-    v[N_gas:,0] += v_impact * vrms
+    v[:N_gas] -= v_impact * vrms * impact_dir
+    v[N_gas:] += v_impact * vrms * impact_dir
     B = np.concatenate([B,B])
     u = np.concatenate([u,u])
     mgas = np.concatenate([mgas,mgas])
