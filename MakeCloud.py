@@ -212,12 +212,13 @@ if filename is None:
         open("params_"+filename.replace(".hdf5","")+"_BOX.txt", "w").write(paramsfile)
     if makecylinder:
         #Get cylinder params
-        R_cyl = R * (0.6666/cyl_aspect_ratio)**(1/3) #volume equivalent cylinder
+        #R_cyl = R * (0.6666/cyl_aspect_ratio)**(1/3) #volume equivalent cylinder
+        R_cyl = R * np.sqrt( np.pi/(4*cyl_aspect_ratio) ) #surface density equivalent cylinder
         L_cyl = R_cyl*2*cyl_aspect_ratio
         vrms_cyl = (2 * G * M_gas / L_cyl)**0.5  / v_unit * turbulence**0.5 #the potential is different for a cylinder than for a sphere, so we need to rescale vrms to get the right alpha, using E_grav_cyl = -GM**2/L
         vrms_cyl *= 0.71 #additional scaling found numerically to make the stirring run reproduce the right alpha and filament length (similarly determined numerical factor added to GIZMO)
         tcross_cyl = 2*R_cyl/vrms_cyl
-        boxsize_cyl = L_cyl*1.1+R_cyl*5 #the box should fit the cylinder and be many times bigger than its width
+        boxsize_cyl = L_cyl*1.5+R_cyl*5 #the box should fit the cylinder and be many times bigger than its width
         print("Cylinder params: L=%g R=%g boxsize=%g vrms=%g"%(L_cyl,R_cyl,boxsize_cyl,vrms_cyl))
         replacements_cyl = replacements.copy()
         replacements_cyl["NAME"] = filename.replace(".hdf5","_CYL")
