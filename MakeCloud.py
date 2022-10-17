@@ -305,17 +305,18 @@ else:
     x, r = x/r.max(), r/r.max()
 #    rnew = r * R
     print("Doing density profile...")
-    if density_exponent<0:
-        rho_form = lambda r: (r+R/1000)**(density_exponent) #change this function to get a different radial density profile; normalization does not matter as long as rmin and rmax are properly specified
-        rmin = 0.
-        rho_norm = quad(lambda r: rho_form(r) * 4 * np.pi * r**2, rmin, R)[0]
-        rho = lambda r: rho_form(r) / rho_norm
-        rnew = odeint(lambda rphys, r3: np.exp(r3)/(4*np.pi*np.exp(rphys)**3*rho(np.exp(rphys))), np.log(R), np.log(r[::-1]**3), atol=1e-12, rtol=1e-12)[::-1,0]
-        rnew = np.exp(rnew)
-    else:
-        print("Using constant density")
+#    if density_exponent<0:
+#        rho_form = lambda r: (r+R/1000)**(density_exponent) #change this function to get a different radial density profile; normalization does not matter as long as rmin and rmax are properly specified
+#        rmin = 0.
+#        rho_norm = quad(lambda r: rho_form(r) * 4 * np.pi * r**2, rmin, R)[0]
+#        rho = lambda r: rho_form(r) / rho_norm
+#        print(np.abs(np.log(r[::-1]**3) -  np.sort(np.log(r**3))[::-1]).max())
+#        rnew = odeint(lambda rphys, r3: np.exp(r3)/(4*np.pi*np.exp(rphys)**3*rho(np.exp(rphys))), np.log(R), np.log(r[::-1]**3), atol=1e-12, rtol=1e-12)[::-1,0]
+#        rnew = np.exp(rnew)
+#    else:
+#        print("Using constant density")
         #rho_form = lambda r: 1. #constant density
-        rnew = r *R
+    rnew = r**(3. / (3+density_exponent)) * R
 #    print(rnew.shape, r.shape)
     x=(x.T * rnew/r).T
 #    print(rnew.max())
