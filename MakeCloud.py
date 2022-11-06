@@ -8,7 +8,6 @@ Options:
    -h --help            Show this screen.
    --R=<pc>             Outer radius of the cloud in pc [default: 20.0]
    --M=<msun>           Mass of the cloud in msun [default: 1e5]
-   --Z=<solar>          Metallicity of the cloud in Solar units [default: 1.0]
    --filename=<name>    Name of the IC file to be generated
    --N=<N>              Number of gas particles [default: 125000]
    --MBH=<msun>         Mass of the central black hole [default: 0.0]
@@ -46,6 +45,8 @@ Options:
    --impact_axis=<x>    Axis along which collision occurs (z is along magnetic field lines) [default: x]
    --makecylinder       Creates a third, cylindrical IC of equivalent volume and mass to the cloud
    --cyl_aspect_ratio=<f>   Sets the aspect ratio of the cylinder, i.e. Length/Diameter [default: 10]
+   --Z=<solar>          Metallicity of the cloud in Solar units (just for params file) [default: 1.0]
+   --ISRF=<solar>          Interstellar radiation background of the cloud in Solar neighborhood units (just for params file) [default: 1.0]
 """
 #Example:  python MakeCloud.py --M=1000 --N=1e7 --R=1.0 --localdir --warmgas --param_only
 
@@ -142,6 +143,7 @@ cyl_aspect_ratio=float(arguments["--cyl_aspect_ratio"])
 fixed_ncrit=float(arguments["--fixed_ncrit"])
 density_exponent=float(arguments["--density_exponent"])
 metallicity=float(arguments["--Z"])
+ISRF = float(arguments["--ISRF"])
 
 if sinkbox:
     turb_type = 'full'
@@ -167,7 +169,7 @@ res_effective = int(N_gas**(1.0/3.0)+0.5)
 phimode=float(arguments["--phimode"])
 
 if filename is None:
-    filename = "M%3.2g_"%(M_gas) + ("MBH%g_"%(M_BH) if M_BH>0 else "") + ("rho_exp%g_"%(-density_exponent) if density_exponent<0 else "") + "R%g_Z%g_S%g_T%g_B%g_Res%d_n%d_sol%g"%(R,metallicity,spin,turbulence,magnetic_field,res_effective,minmode,turb_sol) +  ("_%d"%seed) + ("_SN" if central_SN else "") + ("_collision_%g_%g_%g_%s"%(impact_dist,impact_param,v_impact,impact_axis) if impact_dist>0 else "") + ".hdf5"
+    filename = "M%3.2g_"%(M_gas) + ("MBH%g_"%(M_BH) if M_BH>0 else "") + ("rho_exp%g_"%(-density_exponent) if density_exponent<0 else "") + "R%g_Z%g_S%g_T%g_B%g_ISRF%g_Res%d_n%d_sol%g"%(R,metallicity,spin,turbulence,magnetic_field,ISRF,res_effective,minmode,turb_sol) +  ("_%d"%seed) + ("_SN" if central_SN else "") + ("_collision_%g_%g_%g_%s"%(impact_dist,impact_param,v_impact,impact_axis) if impact_dist>0 else "") + ".hdf5"
     filename = filename.replace("+","").replace('e0','e')
     filename = "".join(filename.split())
     
@@ -196,7 +198,7 @@ if filename is None:
 #    print "dx_min: ", ((np.sum(mgas)*1e10/mass_unit/(2.45e8*ncrit/1e10))**(1/3.0)), "T10^(-1) NJ(^2/3) mu^(4/3) pc"
     paramsfile = str(open(os.path.realpath(__file__).replace("MakeCloud.py","params.txt"), 'r').read())
 
-    replacements = {"NAME": filename.replace(".hdf5",""), "DTSNAP": tff/nsnap, "MAXTIMESTEP": tff/(nsnap*2), "SOFTENING": softening, "GASSOFT": 2.0e-8, "TMAX": tff*tmax, "RHOMAX": ncrit, "BOXSIZE": boxsize/length_unit, "OUTFOLDER": "output", "WIND_PART_MASS": min(delta_m,max(1e-4, delta_m/10.0)), "BH_SEED_MASS": delta_m/2.0 , "TURBDECAY": tcross/2, "TURBENERGY": turbenergy, "TURBFREQ": tcross/20, "TURB_KMIN": int(100 * 2*np.pi/L)/100., "TURB_KMAX": int(100*4*np.pi/(L)+1)/100., "TURB_SIGMA": vrms, "TURB_MINLAMBDA": int(100*R/2)/100, "TURB_MAXLAMBDA": int(100*R*2)/100, "TURB_COHERENCE_TIME": tcross/2, "UNIT_L": 3.085678e18*length_unit, "UNIT_M": 1.989e33*mass_unit, "UNIT_V": 1.0e2*v_unit, "UNIT_B": B_unit, "ZINIT": metallicity}
+    replacements = {"NAME": filename.replace(".hdf5",""), "DTSNAP": tff/nsnap, "MAXTIMESTEP": tff/(nsnap*2), "SOFTENING": softening, "GASSOFT": 2.0e-8, "TMAX": tff*tmax, "RHOMAX": ncrit, "BOXSIZE": boxsize/length_unit, "OUTFOLDER": "output", "WIND_PART_MASS": min(delta_m,max(1e-4, delta_m/10.0)), "BH_SEED_MASS": delta_m/2.0 , "TURBDECAY": tcross/2, "TURBENERGY": turbenergy, "TURBFREQ": tcross/20, "TURB_KMIN": int(100 * 2*np.pi/L)/100., "TURB_KMAX": int(100*4*np.pi/(L)+1)/100., "TURB_SIGMA": vrms, "TURB_MINLAMBDA": int(100*R/2)/100, "TURB_MAXLAMBDA": int(100*R*2)/100, "TURB_COHERENCE_TIME": tcross/2, "UNIT_L": 3.085678e18*length_unit, "UNIT_M": 1.989e33*mass_unit, "UNIT_V": 1.0e2*v_unit, "UNIT_B": B_unit, "ZINIT": metallicity, "ISRF": ISRF}
     
     
     

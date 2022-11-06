@@ -194,6 +194,7 @@ GasReturnEnergy             1.0     % fraction of returned gas energy+momentum (
 %--- cosmic rays (COSMIC_RAYS)
 CosmicRay_SNeFraction       0.1     % fraction of SNe ejecta kinetic energy into cosmic rays (~10%)
 
+InterstellarRadiationFieldStrength  ISRF % interstellar radiation field intensity relative to values measured in Solar neighborhood
 
 %-------------- Black Hole accretion & formation (BLACK_HOLES on)
 %--- formation/seeding  
