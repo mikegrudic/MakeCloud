@@ -176,7 +176,7 @@ VariableWindSpecMomentum 5000.  % wind momentum per unit stellar mass (code velo
 
 %-------------- FIRE (PFH) explicit star formation & feedback model (FIRE on)
 %--- initial metallicity of gas & stars in simulation 
-InitMetallicity             1.0  % initial gas+stellar metallicity (in solar)
+InitMetallicity             ZINIT  % initial gas+stellar metallicity (in solar)
 InitStellarAge              0.0   % initial mean age (in Gyr; for stars in sim ICs)
 %--- local radiation-pressure driven winds (GALSF_FB_FIRE_RT_LOCALRP) 
 WindMomentumLoading         1.0     % fraction of photon momentum to couple
