@@ -179,7 +179,7 @@ if filename is None:
     if fixed_ncrit:
         ncrit=fixed_ncrit
     else:
-        ncrit = min(9.45e9 * (delta_m/0.001)**(-2.0), 1e13) # capped at ~100x the opacity limit
+        ncrit = min(max(9.45e9 * (delta_m/0.001)**(-2.0),1e11), 1e13) # capped at ~100x the opacity limit
     tff = 8.275e-3 * rho_avg**-0.5
     L = (4*np.pi*R**3/3)**(1./3) /length_unit# volume-equivalent box size
     vrms = (6/5 * G * M_gas / R)**0.5  / v_unit * turbulence**0.5
