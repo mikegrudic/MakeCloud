@@ -198,7 +198,10 @@ if filename is None:
 #    print "dx_min: ", ((np.sum(mgas)*1e10/mass_unit/(2.45e8*ncrit/1e10))**(1/3.0)), "T10^(-1) NJ(^2/3) mu^(4/3) pc"
     paramsfile = str(open(os.path.realpath(__file__).replace("MakeCloud.py","params.txt"), 'r').read())
 
-    replacements = {"NAME": filename.replace(".hdf5",""), "DTSNAP": tff/nsnap, "MAXTIMESTEP": tff/(nsnap*2), "SOFTENING": softening, "GASSOFT": 2.0e-8, "TMAX": tff*tmax, "RHOMAX": ncrit, "BOXSIZE": boxsize/length_unit, "OUTFOLDER": "output", "WIND_PART_MASS": min(delta_m,max(1e-4, delta_m/10.0)), "BH_SEED_MASS": delta_m/2.0 , "TURBDECAY": tcross/2, "TURBENERGY": turbenergy, "TURBFREQ": tcross/20, "TURB_KMIN": int(100 * 2*np.pi/L)/100., "TURB_KMAX": int(100*4*np.pi/(L)+1)/100., "TURB_SIGMA": vrms, "TURB_MINLAMBDA": int(100*R/2)/100, "TURB_MAXLAMBDA": int(100*R*2)/100, "TURB_COHERENCE_TIME": tcross/2, "UNIT_L": 3.085678e18*length_unit, "UNIT_M": 1.989e33*mass_unit, "UNIT_V": 1.0e2*v_unit, "UNIT_B": B_unit, "ZINIT": metallicity, "ISRF": ISRF}
+    jet_particle_mass = min(delta_m,max(1e-4, delta_m/10.0))
+    MS_wind_particle_mass = jet_particle_mass / 10 #MS winds have lower mdot than jets, so we should be able to better resolve them this way
+
+    replacements = {"NAME": filename.replace(".hdf5",""), "DTSNAP": tff/nsnap, "MAXTIMESTEP": tff/(nsnap*2), "SOFTENING": softening, "GASSOFT": 2.0e-8, "TMAX": tff*tmax, "RHOMAX": ncrit, "BOXSIZE": boxsize/length_unit, "OUTFOLDER": "output", "WIND_PART_MASS": jet_particle_mass, "MS_WIND_PART_MASS": MS_wind_particle_mass, "BH_SEED_MASS": delta_m/2.0 , "TURBDECAY": tcross/2, "TURBENERGY": turbenergy, "TURBFREQ": tcross/20, "TURB_KMIN": int(100 * 2*np.pi/L)/100., "TURB_KMAX": int(100*4*np.pi/(L)+1)/100., "TURB_SIGMA": vrms, "TURB_MINLAMBDA": int(100*R/2)/100, "TURB_MAXLAMBDA": int(100*R*2)/100, "TURB_COHERENCE_TIME": tcross/2, "UNIT_L": 3.085678e18*length_unit, "UNIT_M": 1.989e33*mass_unit, "UNIT_V": 1.0e2*v_unit, "UNIT_B": B_unit, "ZINIT": metallicity, "ISRF": ISRF}
     
     
     
