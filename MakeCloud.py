@@ -169,7 +169,7 @@ res_effective = int(N_gas**(1.0/3.0)+0.5)
 phimode=float(arguments["--phimode"])
 
 if filename is None:
-    filename = "M%3.2g_"%(M_gas) + ("MBH%g_"%(M_BH) if M_BH>0 else "") + ("rho_exp%g_"%(-density_exponent) if density_exponent<0 else "") + "R%g_Z%g_S%g_T%g_B%g_ISRF%g_Res%d_n%d_sol%g"%(R,metallicity,spin,turbulence,magnetic_field,ISRF,res_effective,minmode,turb_sol) +  ("_%d"%seed) + ("_SN" if central_SN else "") + ("_collision_%g_%g_%g_%s"%(impact_dist,impact_param,v_impact,impact_axis) if impact_dist>0 else "") + ".hdf5"
+    filename = "M%3.2g_"%(M_gas) + ("MBH%g_"%(M_BH) if M_BH>0 else "") + ("rho_exp%g_"%(-density_exponent) if density_exponent<0 else "") + "R%g_Z%g_S%g_A%g_B%g_I%g_Res%d_n%d_sol%g"%(R,metallicity,spin,2*turbulence,magnetic_field,ISRF,res_effective,minmode,turb_sol) +  ("_%d"%seed) + ("_SN" if central_SN else "") + ("_collision_%g_%g_%g_%s"%(impact_dist,impact_param,v_impact,impact_axis) if impact_dist>0 else "") + ".hdf5"
     filename = filename.replace("+","").replace('e0','e')
     filename = "".join(filename.split())
     
