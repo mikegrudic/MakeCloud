@@ -21,8 +21,8 @@ Options:
    --bturb=<f>          Magnetic energy as a fraction of the binding energy [default: 0.1]
    --bfixed=<f>         Magnetic field in magnitude in code units, used instaed of bturb if not set to zero [default: 0]
    --minmode=<N>        Minimum populated turbulent wavenumber for Gaussian initial velocity field, in units of pi/R [default: 2]
-   --turb_path=<name>   Path to store turbulent velocity fields so that we only need to generate them once [default: /home1/mgrudic/turb]
-   --glass_path=<name>  Contains the root path of the glass ic [default: /home1/mgrudic/glass_orig.npy]
+   --turb_path=<name>   Path to store turbulent velocity fields so that we only need to generate them once [default: /home1/03532/mgrudic/turb]
+   --glass_path=<name>  Contains the root path of the glass ic [default: /home1/03532/mgrudic/glass_orig.npy]
    --G=<f>              Gravitational constant in code units [default: 4300.71]
    --boxsize=<f>        Simulation box size
    --warmgas            Add warm ISM envelope in pressure equilibrium that fills the box with uniform density.
@@ -201,7 +201,7 @@ if filename is None:
     jet_particle_mass = min(delta_m,max(1e-4, delta_m/10.0))
     MS_wind_particle_mass = jet_particle_mass / 10 #MS winds have lower mdot than jets, so we should be able to better resolve them this way
 
-    replacements = {"NAME": filename.replace(".hdf5",""), "DTSNAP": tff/nsnap, "MAXTIMESTEP": tff/(nsnap*2), "SOFTENING": softening, "GASSOFT": 2.0e-8, "TMAX": tff*tmax, "RHOMAX": ncrit, "BOXSIZE": boxsize/length_unit, "OUTFOLDER": "output", "WIND_PART_MASS": jet_particle_mass, "MS_WIND_PART_MASS": MS_wind_particle_mass, "BH_SEED_MASS": delta_m/2.0 , "TURBDECAY": tcross/2, "TURBENERGY": turbenergy, "TURBFREQ": tcross/20, "TURB_KMIN": int(100 * 2*np.pi/L)/100., "TURB_KMAX": int(100*4*np.pi/(L)+1)/100., "TURB_SIGMA": vrms, "TURB_MINLAMBDA": int(100*R/2)/100, "TURB_MAXLAMBDA": int(100*R*2)/100, "TURB_COHERENCE_TIME": tcross/2, "UNIT_L": 3.085678e18*length_unit, "UNIT_M": 1.989e33*mass_unit, "UNIT_V": 1.0e2*v_unit, "UNIT_B": B_unit, "ZINIT": metallicity, "ISRF": ISRF}
+    replacements = {"NAME": filename.replace(".hdf5",""), "DTSNAP": tff/nsnap, "MAXTIMESTEP": tff/(nsnap*2), "SOFTENING": softening, "GASSOFT": 2.0e-8, "TMAX": tff*tmax, "RHOMAX": ncrit, "BOXSIZE": boxsize/length_unit, "OUTFOLDER": "output", "JET_PART_MASS": jet_particle_mass, "MS_WIND_PART_MASS": MS_wind_particle_mass, "BH_SEED_MASS": delta_m/2.0 , "TURBDECAY": tcross/2, "TURBENERGY": turbenergy, "TURBFREQ": tcross/20, "TURB_KMIN": int(100 * 2*np.pi/L)/100., "TURB_KMAX": int(100*4*np.pi/(L)+1)/100., "TURB_SIGMA": vrms, "TURB_MINLAMBDA": int(100*R/2)/100, "TURB_MAXLAMBDA": int(100*R*2)/100, "TURB_COHERENCE_TIME": tcross/2, "UNIT_L": 3.085678e18*length_unit, "UNIT_M": 1.989e33*mass_unit, "UNIT_V": 1.0e2*v_unit, "UNIT_B": B_unit, "ZINIT": metallicity, "ISRF": ISRF}
     
     
     

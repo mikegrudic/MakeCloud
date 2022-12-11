@@ -61,8 +61,8 @@ HubbleParam             1.     % little 'h'; =1 for non-cosmological runs
 
 
 %----- Memory allocation
-MaxMemSize          5000    % sets maximum MPI process memory use in MByte
-PartAllocFactor     3.0     % memory load allowed for better cpu balance
+%MaxMemSize          5000    % sets maximum MPI process memory use in MByte
+PartAllocFactor     5.0     % memory load allowed for better cpu balance
 BufferSize          500     % in MByte
 
 %---- Rebuild domains when >this fraction of particles active
@@ -217,7 +217,7 @@ BH_FluxMomentumFactor        0.0	    % multiply radiation pressure (BH_PHOTONMOM
 BAL_f_accretion              0.7        % fraction of gas swallowed by BH (BH_WIND options)
 BAL_v_outflow                100.	    % velocity (km/s) of BAL outflow (BH_WIND options)
 BAL_internal_temperature     1.0e3      % internal temperature (K) of BAL outflow (BH_WIND_SPAWN)
-BAL_wind_particle_mass       WIND_PART_MASS     % mass of 'virtual wind particles' in code units (BH_WIND_SPAWN)
+BAL_wind_particle_mass       JET_PART_MASS     % mass of 'virtual wind particles' in code units (BH_WIND_SPAWN)
 BAL_wind_particle_mass_MS    MS_WIND_PART_MASS     % mass of 'virtual wind particles' in MS stellar winds, if 0 then BAL_wind_particle_mass is used, in code units (SINGLE_STAR_FB_WINDS)
 
 
