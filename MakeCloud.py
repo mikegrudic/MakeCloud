@@ -25,6 +25,7 @@ Options:
    --glass_path=<name>  Contains the root path of the glass ic [default: /home1/03532/mgrudic/glass_orig.npy]
    --G=<f>              Gravitational constant in code units [default: 4300.71]
    --boxsize=<f>        Simulation box size
+   --derefinement       Apply radial derefinement to ambient cells outside of 3* cloud radius
    --warmgas            Add warm ISM envelope in pressure equilibrium that fills the box with uniform density.
    --phimode=<f>        Relative amplitude of m=2 density perturbation (e.g. for Boss-Bodenheimer test) [default: 0.0]
    --localdir           Changes directory defaults assuming all files are used from local directory.
@@ -62,6 +63,17 @@ import h5py
 import os
 from docopt import docopt
 #from pykdgrav import Potential
+
+def get_glass_coords(N_gas, glass_path):
+        x = np.load(glass_path)
+        Nx = len(x)
+
+        while len(x)*np.pi*4/3 / 8 < N_gas:
+            print("Need %d particles, have %d. Tessellating 8 copies of the glass file to get required particle number"%(N_gas * 8 /(4*np.pi/3), len(x)))
+            x = np.concatenate([x/2 + i * np.array([0.5,0,0]) + j * np.array([0,0.5,0]) + k * np.array([0, 0, 0.5]) for i in range(2) for j in range(2) for k in range(2)])
+            Nx = len(x)
+        print("Glass loaded!")
+        return x
 
 def TurbField(res=256, minmode=2, maxmode = 64, sol_weight=1., seed=42):
     freqs = fftpack.fftfreq(res)
@@ -165,6 +177,8 @@ elif sinkbox:
 else:
     boxsize = 10*R
 
+derefinement = arguments["--derefinement"]
+
 res_effective = int(N_gas**(1.0/3.0)+0.5)
 phimode=float(arguments["--phimode"])
 
@@ -249,7 +263,8 @@ if param_only:
     print('Parameters only run, exiting...')
     exit()
 
-mgas = np.repeat(M_gas/N_gas, N_gas)
+dm = M_gas/N_gas
+mgas = np.repeat(dm, N_gas)
 
 if turb_type=='full':
     ft = h5py.File("/panfs/ds08/hopkins/mgrudic/turb/supersonic128/snapshot_%s.hdf5"%(str(seed).zfill(3)), 'r')
@@ -291,14 +306,8 @@ if turb_type=='full':
     #B /= (0.5/(2*R))**1.5
     r = np.sum(x**2,axis=1)**0.5
 else:
-    x = np.load(glass_path)
+    x = get_glass_coords(N_gas, glass_path)
     Nx = len(x)
-
-    while len(x)*np.pi*4/3 / 8 < N_gas:
-        print("Need %d particles, have %d. Tessellating 8 copies of the glass file to get required particle number"%(N_gas * 8 /(4*np.pi/3), len(x)))
-        x = np.concatenate([x/2 + i * np.array([0.5,0,0]) + j * np.array([0,0.5,0]) + k * np.array([0, 0, 0.5]) for i in range(2) for j in range(2) for k in range(2)])
-        Nx = len(x)
-    print("Glass loaded!")
     x = 2*(x-0.5)
     print("Computing radii...")
     r = cdist(x, [np.zeros(3)])[:,0] #np.sum(x**2, axis=1)**0.5
@@ -446,27 +455,35 @@ if warmgas:
     rho_warm = M_gas*3/(4*np.pi*R**3) / 1000
     M_warm = (boxsize**3 - (4*np.pi*R**3 / 3)) * rho_warm # mass of diffuse box-filling medium
     N_warm = int(M_warm/(M_gas/N_gas))
-#    print(N_warm)
-    x_warm = boxsize*np.random.rand(N_warm, 3) - boxsize/2
-    if impact_dist == 0: x_warm = x_warm[np.sum(x_warm**2,axis=1) > R**2]
-    N_warm = len(x_warm)
+    if derefinement:
+        x0 = get_glass_coords(N_gas, glass_path)
+        Nx = len(x0)
+        x0 = 2*(x0-0.5)
+        r0 = (x0*x0).sum(1)**0.5
+        x0, r0 = x0[r0.argsort()], r0[r0.argsort()]
+        # first lay down the stuff within 3*R
+        N_warm = int(4*np.pi*rho_warm*(3*R)**3/3/dm) # number of cells within 3R
+        print(N_warm)
+        x_warm = x0[:N_warm] * 3 * R / r0[N_warm-1]  # uniform density of cells within 3R
+        x0 = x0[N_warm:] # now we take the ones outside the initial sphere and map them to a n(R) ~ R^-3 profile so that we get constant number of cells per log radius interval
+        r0 = r0[N_warm:]
+        rnew = 3*R*np.exp(np.arange(len(x0))/N_warm/3)
+        x_warm = np.concatenate([x_warm, (rnew/r0)[:,None] * x0],axis=0)
+        x_warm = x_warm[np.max(np.abs(x_warm),axis=1) < boxsize/2]
+        N_warm = len(x_warm)
+        R_warm = (x_warm*x_warm).sum(1)**0.5
+        mgas = np.concatenate([mgas, np.clip(dm*(R_warm/(3*R))**3,dm,np.inf)])
+    else:
+        x_warm = boxsize*np.random.rand(N_warm, 3) - boxsize/2
+        if impact_dist == 0: x_warm = x_warm[np.sum(x_warm**2,axis=1) > R**2]
+        N_warm = len(x_warm)
+        mgas = np.concatenate([mgas, np.repeat(mgas.sum()/len(mgas),N_warm)])
     x = np.concatenate([x, x_warm])
     v = np.concatenate([v, np.zeros((N_warm,3))])
     Bmag = np.average(np.sum(B**2,axis=1))**0.5
     B = np.concatenate([B, np.repeat(Bmag,N_warm)[:,np.newaxis] * np.array([0,0,1])])
-    mgas = np.concatenate([mgas, np.repeat(mgas.sum()/len(mgas),N_warm)])
     u = np.concatenate([u, np.repeat(101.,N_warm)])
-    # old kludgy way of setting up diffuse medium with uniform B field; probably don't use this
-    # N_warm = int(warmgas*N_gas+0.5)
-    # sigma_warm = 2*R*10*warmgas**(1./3)
-    # x_warm = np.random.normal(size=(N_warm,3))*sigma_warm
-    # r_warm = np.sum(x_warm**2,axis=1)**0.5
-    # R_warm = np.sum(x_warm[:,:2]**2,axis=1)**0.5
-    # x = np.concatenate([x, x_warm])
-    # v = np.concatenate([v, np.zeros((N_warm,3))])
-    # Bmag = np.average(np.sum(B**2,axis=1))**0.5
-    # B = np.concatenate([B, Bmag * np.exp(-R_warm**2/(2*sigma_warm**2))[:,np.newaxis] * np.array([0,0,1])])
-    # mgas = np.concatenate([mgas, np.repeat(M_gas/N_gas,N_warm)])
+
     if makecylinder:
         #The magnetic field is paralell to the cylinder (true at low densities, so probably fine for IC)
         B_cyl = np.concatenate([B, np.repeat(Bmag,N_warm)[:,np.newaxis] * np.array([1,0,0])])
@@ -515,7 +532,7 @@ F.create_group("PartType0")
 F.create_group("Header")
 F["Header"].attrs["NumPart_ThisFile"] = [len(mgas),0,0,0,0,(1 if M_BH>0 else 0)]
 F["Header"].attrs["NumPart_Total"] = [len(mgas),0,0,0,0,(1 if M_BH>0 else 0)]
-F["Header"].attrs["MassTable"] = [mgas.mean()/mass_unit,0,0,0,0, M_BH/mass_unit]
+#F["Header"].attrs["MassTable"] = [mgas.mean()/mass_unit,0,0,0,0, M_BH/mass_unit]
 F["Header"].attrs["BoxSize"] = boxsize/length_unit
 F["Header"].attrs["Time"] = 0.0
 F["PartType0"].create_dataset("Masses", data=mgas/mass_unit)
