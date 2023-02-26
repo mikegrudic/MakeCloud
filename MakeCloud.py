@@ -15,6 +15,7 @@ Options:
    --central_SN         Sets the central sink (MBH>0) to go supernova
    --density_exponent=<f>   Power law exponent of the density profile [default: 0.0]
    --spin=<f>           Spin parameter: fraction of binding energy in solid-body rotation [default: 0.0]
+   --omega_exponent=<f>  Powerlaw exponent of rotational frequency as a function of cylindrical radius [default: 0.0]
    --turb_type=<s>      Type of initial turbulent velocity (and possibly density field): 'gaussian' or 'full' [default: gaussian]
    --turb_sol=<f>       Fraction of turbulence in solenoidal modes, used when turb_type is 'gaussian' [default: 0.5]
    --alpha_turb=<f>     Turbulent virial parameter (BM92 convention: 2Eturb/|Egrav|) [default: 2.]
@@ -124,6 +125,7 @@ M_BH = float(arguments["--MBH"])
 central_star = arguments["--central_star"]
 central_SN = arguments["--central_SN"]
 spin = float(arguments["--spin"])
+omega_exponent = float(arguments["--omega_exponent"])
 turbulence = float(arguments["--alpha_turb"])/2
 turb_type = arguments["--turb_type"]
 seed = int(float(arguments["--turb_seed"])+0.5)
@@ -368,17 +370,22 @@ if sinkbox:
     ugrav= G * M_gas**2 / R
 else:
     ugrav = G * np.sum(Mr/ r * mgas)
-print(ugrav)
-E_rot = spin * ugrav
-I_z = np.sum(mgas * (x[:,0]**2+x[:,1]**2))
-omega = (2*E_rot/I_z)**0.5
+
+E_rot_target = spin * ugrav
+Rcyl = np.sqrt(x[:,0]**2+x[:,1]**2)
+omega = Rcyl**omega_exponent
+vrot = np.cross(np.c_[np.zeros_like(omega),np.zeros_like(omega),omega], x)
+Erot_actual = np.sum(0.5*mgas[:,None]*vrot**2)
+vrot *= np.sqrt(E_rot_target/Erot_actual)
+#I_z = np.sum(mgas * ()
+#omega = (2*E_rot/I_z)**0.5
 #omega = spin * np.sqrt(G*(M_BH+M_gas)/R**3)
 
 v -= np.average(v,axis=0)
 Eturb = 0.5*M_gas/N_gas*np.sum(v**2)
 v *= np.sqrt(turbulence*ugrav/Eturb)
 
-v += np.cross(np.c_[np.zeros_like(omega),np.zeros_like(omega),omega], x)
+v += vrot
 
 
 if turb_type != 'full':
