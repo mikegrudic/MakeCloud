@@ -10,9 +10,6 @@ Options:
    --M=<msun>           Mass of the cloud in msun [default: 1e5]
    --filename=<name>    Name of the IC file to be generated
    --N=<N>              Number of gas particles [default: 125000]
-   --MBH=<msun>         Mass of the central black hole [default: 0.0]
-   --central_star       Sets the central sink (MBH>0) to be a ZAMS star
-   --central_SN         Sets the central sink (MBH>0) to go supernova
    --density_exponent=<f>   Power law exponent of the density profile [default: 0.0]
    --spin=<f>           Spin parameter: fraction of binding energy in solid-body rotation [default: 0.0]
    --omega_exponent=<f>  Powerlaw exponent of rotational frequency as a function of cylindrical radius [default: 0.0]
@@ -20,21 +17,23 @@ Options:
    --turb_sol=<f>       Fraction of turbulence in solenoidal modes, used when turb_type is 'gaussian' [default: 0.5]
    --alpha_turb=<f>     Turbulent virial parameter (BM92 convention: 2Eturb/|Egrav|) [default: 2.]
    --bturb=<f>          Magnetic energy as a fraction of the binding energy [default: 0.1]
-   --bfixed=<f>         Magnetic field in magnitude in code units, used instaed of bturb if not set to zero [default: 0]
+   --bfixed=<f>         Magnetic field in magnitude in code units, used instead of bturb if not set to zero [default: 0]
    --minmode=<N>        Minimum populated turbulent wavenumber for Gaussian initial velocity field, in units of pi/R [default: 2]
-   --turb_path=<name>   Path to store turbulent velocity fields so that we only need to generate them once [default: /home1/03532/mgrudic/turb]
-   --glass_path=<name>  Contains the root path of the glass ic [default: /home1/03532/mgrudic/glass_orig.npy]
-   --G=<f>              Gravitational constant in code units [default: 4300.71]
+   --turb_path=<name>   Path to store turbulent velocity fields so that we only need to generate them once (defaults to ~/turb)
+   --glass_path=<name>  Contains the the path of the glass file (defaults to your home directory)
    --boxsize=<f>        Simulation box size
+   --Mstar=<msun>       Mass of the star/black hole, if any [default: 0.0]
+   --v_star=<vx,vy,vz>  Velocity of the star [default: 0.0,0.0,0.0]
+   --x_star=<x,y,z>     Position of the star, defaults to center of the box
+   --star_stage=<N>     Evolutionary stage of the star/black hole [default: 7]
    --derefinement       Apply radial derefinement to ambient cells outside of 3* cloud radius
-   --warmgas            Add warm ISM envelope in pressure equilibrium that fills the box with uniform density.
+   --no_diffuse_gas     Remove diffuse ISM envelope fills the rest of the box with uniform density. 
    --phimode=<f>        Relative amplitude of m=2 density perturbation (e.g. for Boss-Bodenheimer test) [default: 0.0]
    --localdir           Changes directory defaults assuming all files are used from local directory.
    --B_unit=<gauss>     Unit of magnetic field in gauss [default: 1e4]
    --length_unit=<pc>   Unit of length in pc [default: 1]
    --mass_unit=<msun>   Unit of mass in M_sun [default: 1]
    --v_unit=<m/s>       Unit of velocity in m/s [default: 1]
-   --sinkbox=<f>        Setup for light seeds in a turbulent box problem - parameter is the maximum seed mass in solar [default: 0.0]
    --turb_seed=<N>      Random seed for turbulence initialization [default: 42]
    --tmax=<N>           Maximum time to run the simulation to, in units of the freefall time [default: 5]
    --nsnap=<N>          Number of snapshots per freefall time [default: 150]
@@ -48,9 +47,9 @@ Options:
    --makecylinder       Creates a third, cylindrical IC of equivalent volume and mass to the cloud
    --cyl_aspect_ratio=<f>   Sets the aspect ratio of the cylinder, i.e. Length/Diameter [default: 10]
    --Z=<solar>          Metallicity of the cloud in Solar units (just for params file) [default: 1.0]
-   --ISRF=<solar>          Interstellar radiation background of the cloud in Solar neighborhood units (just for params file) [default: 1.0]
+   --ISRF=<solar>       Interstellar radiation background of the cloud in Solar neighborhood units (just for params file) [default: 1.0]
 """
-#Example:  python MakeCloud.py --M=1000 --N=1e7 --R=1.0 --localdir --warmgas --param_only
+#Example:  python MakeCloud.py --M=1000 --N=1e7 --R=1.0 --localdir --param_only 
 
 
 import numpy as np
@@ -63,18 +62,17 @@ import sys
 import h5py
 import os
 from docopt import docopt
-#from pykdgrav import Potential
 
 def get_glass_coords(N_gas, glass_path):
-        x = np.load(glass_path)
-        Nx = len(x)
+    x = np.load(glass_path)
+    Nx = len(x)
 
-        while len(x)*np.pi*4/3 / 8 < N_gas:
-            print("Need %d particles, have %d. Tessellating 8 copies of the glass file to get required particle number"%(N_gas * 8 /(4*np.pi/3), len(x)))
-            x = np.concatenate([x/2 + i * np.array([0.5,0,0]) + j * np.array([0,0.5,0]) + k * np.array([0, 0, 0.5]) for i in range(2) for j in range(2) for k in range(2)])
-            Nx = len(x)
-        print("Glass loaded!")
-        return x
+    while len(x)*np.pi*4/3 / 8 < N_gas:
+        print("Need %d particles, have %d. Tessellating 8 copies of the glass file to get required particle number"%(N_gas * 8 /(4*np.pi/3), len(x)))
+        x = np.concatenate([x/2 + i * np.array([0.5,0,0]) + j * np.array([0,0.5,0]) + k * np.array([0, 0, 0.5]) for i in range(2) for j in range(2) for k in range(2)])
+        Nx = len(x)
+    print("Glass loaded!")
+    return x
 
 def TurbField(res=256, minmode=2, maxmode = 64, sol_weight=1., seed=42):
     freqs = fftpack.fftfreq(res)
@@ -91,7 +89,6 @@ def TurbField(res=256, minmode=2, maxmode = 64, sol_weight=1., seed=42):
         rand_phase = fftpack.fftn(np.random.normal(size=kSqr.shape)) # fourier transform of white noise
         vk = rand_phase * (float(minmode)/res)**2 / (kSqr+1e-300)
         #vk[intkSqr < minmode**2] = 0.0     # freeze out modes lower than minmode
-#        print(intkSqr[intkSqr < minmode**2])
         vk[intkSqr==0] = 0.0
 #        vk[intkSqr>0] *= np.exp(-minmode**2/intkSqr)
         vk[intkSqr < minmode**2] *= intkSqr[intkSqr < minmode**2]**2/minmode**4 # smoother filter than mode-freezing; should give less "ringing" artifacts
@@ -121,13 +118,11 @@ arguments = docopt(__doc__)
 R = float(arguments["--R"])
 M_gas = float(arguments["--M"])
 N_gas = int(float(arguments["--N"])+0.5)
-M_BH = float(arguments["--MBH"])
-central_star = arguments["--central_star"]
-central_SN = arguments["--central_SN"]
+M_star = float(arguments["--Mstar"])
+v_star = np.array([float(v) for v in arguments["--v_star"].split(',')])
 spin = float(arguments["--spin"])
 omega_exponent = float(arguments["--omega_exponent"])
 turbulence = float(arguments["--alpha_turb"])/2
-turb_type = arguments["--turb_type"]
 seed = int(float(arguments["--turb_seed"])+0.5)
 tmax = int(float(arguments["--tmax"]))
 nsnap = int(float(arguments["--nsnap"]))
@@ -136,17 +131,15 @@ magnetic_field = float(arguments["--bturb"])
 bfixed = float(arguments["--bfixed"])
 minmode = int(arguments["--minmode"])
 filename = arguments["--filename"]
-turb_path = arguments["--turb_path"]
-glass_path = arguments["--glass_path"]
-G = float(arguments["--G"])
-warmgas = arguments["--warmgas"]
+diffuse_gas = not arguments["--no_diffuse_gas"]
 localdir = arguments["--localdir"]
 param_only = arguments["--param_only"]
 B_unit = float(arguments["--B_unit"])
 length_unit = float(arguments["--length_unit"])
 mass_unit = float(arguments["--mass_unit"])
 v_unit = float(arguments["--v_unit"])
-sinkbox = float(arguments["--sinkbox"])
+t_unit = length_unit/v_unit
+G = 4300.71 * v_unit**-2 * mass_unit / length_unit
 makebox = arguments["--makebox"]
 impact_param = float(arguments["--impact_param"])
 impact_dist = float(arguments["--impact_dist"])
@@ -158,108 +151,113 @@ fixed_ncrit=float(arguments["--fixed_ncrit"])
 density_exponent=float(arguments["--density_exponent"])
 metallicity=float(arguments["--Z"])
 ISRF = float(arguments["--ISRF"])
-
-if sinkbox:
-    turb_type = 'full'
-    
-#B_unit = 1e4
-#length_unit = 1.0
-#mass_unit = 1.0
-#v_unit = 1.0
+if arguments["--turb_path"]: turb_path = arguments["--turb_path"]
+else: turb_path = os.path.expanduser('~') + "/turb"
+if arguments["--glass_path"]: glass_path = arguments["--glass_path"]
+else:
+    glass_path = os.path.expanduser('~') + "/glass_orig.npy"
+    if not os.path.exists(glass_path):
+        import urllib.request
+        print("Downloading glass file...")
+        urllib.request.urlretrieve("http://www.tapir.caltech.edu/~mgrudich/glass_orig.npy",glass_path)
 
 if localdir:
     turb_path = "turb"
     glass_path = "glass_256.npy"
 
 if arguments["--boxsize"] is not None:
-#    print(arguments["--boxsize"])
-    boxsize = float(arguments["--boxsize"])/length_unit
-elif sinkbox:
-    boxsize = 2*R
+    boxsize = float(arguments["--boxsize"])
 else:
     boxsize = 10*R
+
+if arguments["--x_star"]:
+    x_star = np.array([float(x) for x in arguments["--x_star"].split(',')])
+else: # default to center of box
+    x_star = np.repeat(0.5*boxsize,3)
 
 derefinement = arguments["--derefinement"]
 
 res_effective = int(N_gas**(1.0/3.0)+0.5)
 phimode=float(arguments["--phimode"])
 
-if filename is None:
-    filename = "M%3.2g_"%(M_gas) + ("MBH%g_"%(M_BH) if M_BH>0 else "") + ("rho_exp%g_"%(-density_exponent) if density_exponent<0 else "") + "R%g_Z%g_S%g_A%g_B%g_I%g_Res%d_n%d_sol%g"%(R,metallicity,spin,2*turbulence,magnetic_field,ISRF,res_effective,minmode,turb_sol) +  ("_%d"%seed) + ("_SN" if central_SN else "") + ("_collision_%g_%g_%g_%s"%(impact_dist,impact_param,v_impact,impact_axis) if impact_dist>0 else "") + ".hdf5"
-    filename = filename.replace("+","").replace('e0','e')
-    filename = "".join(filename.split())
-    
-#    print "Cloud density: ", (np.sum(mgas)*1e10/mass_unit/(4.0/3.0*3.141*(R*1000/length_unit)**3)), " M_sun/pc^3", '   ',  (np.sum(mgas)*1e10/mass_unit/(4.0/3.0*3.141*(R*1000/length_unit)**3)/24532.3*1e6), " mu^(-1) cm^(-3)" 
-    #n_crit mased on assumption that dm=M_jeans, meaning that densest is still resolved by NJ particles
-    delta_m = M_gas/mass_unit/N_gas
-    rho_avg = 3*M_gas/(R)**3/(4*np.pi)
+filename = "M%3.2g_"%(M_gas) + ("Mstar%g_"%(M_star) if M_star>0 else "") + ("rho_exp%g_"%(-density_exponent) if density_exponent<0 else "") \
+    + "R%g_Z%g_S%g_A%g_B%g_I%g_Res%d_n%d_sol%g"%(R,metallicity,spin,2*turbulence,magnetic_field,ISRF,res_effective,minmode,turb_sol) \
+    +  ("_%d"%seed)  + ("_collision_%g_%g_%g_%s"%(impact_dist,impact_param,v_impact,impact_axis) if impact_dist>0 else "") + ".hdf5"
+filename = filename.replace("+","").replace('e0','e')
+filename = "".join(filename.split())
+ 
+delta_m = M_gas/N_gas
+delta_m_solar = delta_m / mass_unit
+rho_avg = 3*M_gas/R**3/(4*np.pi)
+if delta_m_solar < 0.1: # if we're doing something marginally IMF-resolving
     softening = 3.11e-5 # ~6.5 AU, minimum sink radius is 2.8 times that (~18 AU)
-    if fixed_ncrit:
-        ncrit=fixed_ncrit
-    else:
-        ncrit = min(max(9.45e9 * (delta_m/0.001)**(-2.0),1e11), 1e13) # capped at ~100x the opacity limit
-    tff = 8.275e-3 * rho_avg**-0.5
-    L = (4*np.pi*R**3/3)**(1./3) /length_unit# volume-equivalent box size
-    vrms = (6/5 * G * M_gas / R)**0.5  / v_unit * turbulence**0.5
-    if turbulence:
-        tcross = L/vrms
-    else:
-        tcross = tff
+    ncrit = 1e13 # ~100x the opacity limit
+else: # something more FIRE-like, where we rely on a sub-grid prescription turning gas into star particles
+    softening = 0.1
+    ncrit = 100
 
-    turbenergy = 0.019111097819633344*vrms**3/L # ST_Energy sets the dissipation rate of SPECIFIC energy ~ v^2 / (L/v) ~ v^3/L
-#    print(tff)
-#   ncrit=(360684.5/((M_gas*1e10/mass_unit/N_gas)**2))
-    #print "n_crit assuming NJ*dm=M_jeans: ", ncrit ,"T10^3 NJ(^-2) mu^(-4) cm^(-3)", np.log10(ncrit)
-    #10^10 cm^-3 -> 2.45*10^8*mu*M_sun/pc^3, where mu is molecular weight
-#    print "dx_min: ", ((np.sum(mgas)*1e10/mass_unit/(2.45e8*ncrit/1e10))**(1/3.0)), "T10^(-1) NJ(^2/3) mu^(4/3) pc"
+if fixed_ncrit:
+    ncrit=fixed_ncrit
+    
+tff = (3*np.pi/(32*G*rho_avg))**0.5
+L = (4*np.pi*R**3/3)**(1./3) # volume-equivalent box size
+vrms = (6/5 * G * M_gas / R)**0.5 * turbulence**0.5
+
+if turbulence:
+    tcross = L/vrms
+else:
+    tcross = tff
+
+turbenergy = 0.019111097819633344*vrms**3/L # ST_Energy sets the dissipation rate of SPECIFIC energy ~ v^2 / (L/v) ~ v^3/L
+
+paramsfile = str(open(os.path.realpath(__file__).replace("MakeCloud.py","params.txt"), 'r').read())
+
+jet_particle_mass = min(delta_m,max(1e-4, delta_m/10.0))
+MS_wind_particle_mass = jet_particle_mass / 10 #MS winds have lower mdot than jets, so we should be able to better resolve them this way
+
+replacements = {"NAME": filename.replace(".hdf5",""), "DTSNAP": tff/nsnap, "MAXTIMESTEP": tff/(nsnap), 
+                "SOFTENING": softening, "GASSOFT": 2.0e-8, "TMAX": tff*tmax, "RHOMAX": ncrit, 
+                "BOXSIZE": boxsize, "OUTFOLDER": "output", "JET_PART_MASS": jet_particle_mass, 
+                "MS_WIND_PART_MASS": MS_wind_particle_mass, "BH_SEED_MASS": delta_m/2.0 , "TURBDECAY": tcross/2, 
+                "TURBENERGY": turbenergy, "TURBFREQ": tcross/20, "TURB_KMIN": int(100 * 2*np.pi/L)/100., 
+                "TURB_KMAX": int(100*4*np.pi/(L)+1)/100., "TURB_SIGMA": vrms, "TURB_MINLAMBDA": int(100*R/2)/100,
+                "TURB_MAXLAMBDA": int(100*R*2)/100, "TURB_COHERENCE_TIME": tcross/2, "UNIT_L": 3.085678e18*length_unit, 
+                "UNIT_M": 1.989e33*mass_unit, "UNIT_V": v_unit*1e2, "UNIT_B": B_unit, "ZINIT": metallicity, "ISRF": ISRF}        
+
+for k in replacements.keys():
+    paramsfile = paramsfile.replace(k, str(replacements[k])) 
+open("params_"+filename.replace(".hdf5","")+".txt", "w").write(paramsfile)
+if makebox:
+    replacements_box = replacements.copy()
+    replacements_box["NAME"] = filename.replace(".hdf5","_BOX")
+    replacements_box["BOXSIZE"] = L
+    replacements_box["TURB_MINLAMBDA"] = int(100*L/2)/100; replacements_box["TURB_MAXLAMBDA"] = int(100*L*2)/100;
     paramsfile = str(open(os.path.realpath(__file__).replace("MakeCloud.py","params.txt"), 'r').read())
-
-    jet_particle_mass = min(delta_m,max(1e-4, delta_m/10.0))
-    MS_wind_particle_mass = jet_particle_mass / 10 #MS winds have lower mdot than jets, so we should be able to better resolve them this way
-
-    replacements = {"NAME": filename.replace(".hdf5",""), "DTSNAP": tff/nsnap, "MAXTIMESTEP": tff/(nsnap*2), "SOFTENING": softening, "GASSOFT": 2.0e-8, "TMAX": tff*tmax, "RHOMAX": ncrit, "BOXSIZE": boxsize/length_unit, "OUTFOLDER": "output", "JET_PART_MASS": jet_particle_mass, "MS_WIND_PART_MASS": MS_wind_particle_mass, "BH_SEED_MASS": delta_m/2.0 , "TURBDECAY": tcross/2, "TURBENERGY": turbenergy, "TURBFREQ": tcross/20, "TURB_KMIN": int(100 * 2*np.pi/L)/100., "TURB_KMAX": int(100*4*np.pi/(L)+1)/100., "TURB_SIGMA": vrms, "TURB_MINLAMBDA": int(100*R/2)/100, "TURB_MAXLAMBDA": int(100*R*2)/100, "TURB_COHERENCE_TIME": tcross/2, "UNIT_L": 3.085678e18*length_unit, "UNIT_M": 1.989e33*mass_unit, "UNIT_V": 1.0e2*v_unit, "UNIT_B": B_unit, "ZINIT": metallicity, "ISRF": ISRF}
-    
-    
-    
-    for k in replacements.keys():
-        paramsfile = paramsfile.replace(k, str(replacements[k])) 
-    open("params_"+filename.replace(".hdf5","")+".txt", "w").write(paramsfile)
-    if makebox:
-        replacements_box = replacements.copy()
-        replacements_box["NAME"] = filename.replace(".hdf5","_BOX")
-        replacements_box["BOXSIZE"] = L
-        replacements_box["TURB_MINLAMBDA"] = int(100*L/2)/100; replacements_box["TURB_MAXLAMBDA"] = int(100*L*2)/100;
-        paramsfile = str(open(os.path.realpath(__file__).replace("MakeCloud.py","params.txt"), 'r').read())
-        for k in replacements_box.keys():
-            paramsfile = paramsfile.replace(k, str(replacements_box[k]))         
-        open("params_"+filename.replace(".hdf5","")+"_BOX.txt", "w").write(paramsfile)
-    if makecylinder:
-        #Get cylinder params
-        #R_cyl = R * (0.6666/cyl_aspect_ratio)**(1/3) #volume equivalent cylinder
-        R_cyl = R * np.sqrt( np.pi/(4*cyl_aspect_ratio) ) #surface density equivalent cylinder
-        L_cyl = R_cyl*2*cyl_aspect_ratio
-        vrms_cyl = (2 * G * M_gas / L_cyl)**0.5  / v_unit * turbulence**0.5 #the potential is different for a cylinder than for a sphere, so we need to rescale vrms to get the right alpha, using E_grav_cyl = -GM**2/L
-        vrms_cyl *= 0.71 #additional scaling found numerically to make the stirring run reproduce the right alpha and filament length (similarly determined numerical factor added to GIZMO)
-        tcross_cyl = 2*R_cyl/vrms_cyl
-        boxsize_cyl = L_cyl*1.5+R_cyl*5 #the box should fit the cylinder and be many times bigger than its width
-        print("Cylinder params: L=%g R=%g boxsize=%g vrms=%g"%(L_cyl,R_cyl,boxsize_cyl,vrms_cyl))
-        replacements_cyl = replacements.copy()
-        replacements_cyl["NAME"] = filename.replace(".hdf5","_CYL")
-        replacements_cyl["BOXSIZE"] = boxsize_cyl/length_unit
-        #New driving params
-        replacements_cyl["TURB_MINLAMBDA"] = int(100*R_cyl)/100; replacements_cyl["TURB_MAXLAMBDA"] = int(100*R_cyl*4)/100;
-        replacements_cyl["TURB_SIGMA"] = vrms_cyl; replacements_cyl["TURB_COHERENCE_TIME"] = tcross_cyl/2; 
-        #Legacy driving params, probably needs tuning
-        replacements_cyl["TURBDECAY"] = tcross_cyl/2; replacements_cyl["TURBENERGY"] = 0.019111097819633344*vrms_cyl**3/R_cyl; replacements_cyl["TURBFREQ"] = tcross_cyl/20;
-        replacements_cyl["TURB_KMIN"] = int(100 * 2*np.pi/R_cyl)/100.; replacements_cyl["TURB_KMAX"] = int(100*4*np.pi/(R_cyl)+1)/100.;
-        paramsfile = str(open(os.path.realpath(__file__).replace("MakeCloud.py","params.txt"), 'r').read())
-        for k in replacements_cyl.keys():
-            paramsfile = paramsfile.replace(k, str(replacements_cyl[k]))         
-        open("params_"+filename.replace(".hdf5","")+"_CYL.txt", "w").write(paramsfile)
-        
-        
-        
-        
+    for k in replacements_box.keys():
+        paramsfile = paramsfile.replace(k, str(replacements_box[k]))         
+    open("params_"+filename.replace(".hdf5","")+"_BOX.txt", "w").write(paramsfile)
+if makecylinder:
+    #Get cylinder params
+    R_cyl = R * np.sqrt( np.pi/(4*cyl_aspect_ratio) ) #surface density equivalent cylinder
+    L_cyl = R_cyl*2*cyl_aspect_ratio
+    vrms_cyl = (2 * G * M_gas / L_cyl)**0.5 * turbulence**0.5 #the potential is different for a cylinder than for a sphere, so we need to rescale vrms to get the right alpha, using E_grav_cyl = -GM**2/L
+    vrms_cyl *= 0.71 #additional scaling found numerically to make the stirring run reproduce the right alpha and filament length (similarly determined numerical factor added to GIZMO)
+    tcross_cyl = 2*R_cyl/vrms_cyl
+    boxsize_cyl = L_cyl*1.5+R_cyl*5 #the box should fit the cylinder and be many times bigger than its width
+    print("Cylinder params: L=%g R=%g boxsize=%g vrms=%g"%(L_cyl,R_cyl,boxsize_cyl,vrms_cyl))
+    replacements_cyl = replacements.copy()
+    replacements_cyl["NAME"] = filename.replace(".hdf5","_CYL")
+    replacements_cyl["BOXSIZE"] = boxsize_cyl
+    #New driving params
+    replacements_cyl["TURB_MINLAMBDA"] = int(100*R_cyl)/100; replacements_cyl["TURB_MAXLAMBDA"] = int(100*R_cyl*4)/100;
+    replacements_cyl["TURB_SIGMA"] = vrms_cyl; replacements_cyl["TURB_COHERENCE_TIME"] = tcross_cyl/2; 
+    #Legacy driving params, probably needs tuning
+    replacements_cyl["TURBDECAY"] = tcross_cyl/2; replacements_cyl["TURBENERGY"] = 0.019111097819633344*vrms_cyl**3/R_cyl; replacements_cyl["TURBFREQ"] = tcross_cyl/20;
+    replacements_cyl["TURB_KMIN"] = int(100 * 2*np.pi/R_cyl)/100.; replacements_cyl["TURB_KMAX"] = int(100*4*np.pi/(R_cyl)+1)/100.;
+    paramsfile = str(open(os.path.realpath(__file__).replace("MakeCloud.py","params.txt"), 'r').read())
+    for k in replacements_cyl.keys():
+        paramsfile = paramsfile.replace(k, str(replacements_cyl[k]))         
+    open("params_"+filename.replace(".hdf5","")+"_CYL.txt", "w").write(paramsfile)        
         
 if param_only:
     print('Parameters only run, exiting...')
@@ -268,134 +266,63 @@ if param_only:
 dm = M_gas/N_gas
 mgas = np.repeat(dm, N_gas)
 
-if turb_type=='full':
-    ft = h5py.File("/panfs/ds08/hopkins/mgrudic/turb/supersonic128/snapshot_%s.hdf5"%(str(seed).zfill(3)), 'r')
+x = get_glass_coords(N_gas, glass_path)
+Nx = len(x)
+x = 2*(x-0.5)
+print("Computing radii...")
+r = cdist(x, [np.zeros(3)])[:,0]
+print("Done! Sorting coordinates...")
+x = x[r.argsort()][:N_gas]
+print("Done! Rescaling...")
+x *= (float(Nx) / N_gas * 4*np.pi/3 / 8)**(1./3)*R
+print("Done! Recomupting radii...")
+r = cdist(x, [np.zeros(3)])[:,0]
+x, r = x/r.max(), r/r.max()
+print("Doing density profile...")
 
-#    ft = h5py.File("/panfs/ds08/hopkins/mgrudic/turb/nomhd/snapshot_002_c.hdf5")
-    x = np.float64(np.array(ft["PartType0"]["Coordinates"]))-0.5
-    Ns = len(x)
+rnew = r**(3. / (3+density_exponent)) * R
+x=x * (rnew/r)[:,None] 
+r = np.sum(x**2, axis=1)**0.5
+r_order = r.argsort()
+x, r = np.take(x,r_order,axis=0), r[r_order]
 
-    r = np.sum(x**2,axis=1)**0.5
-    if sinkbox:
-        subset = np.ones_like(r, dtype=np.bool)
-        N_gas = Ns
-        mgas = np.repeat(M_gas/N_gas, N_gas)
-        res_effective = int(N_gas**(1.0/3.0)+0.5)
-    else:
-        subset = r < 0.5
-    if "MagneticField" in ft["PartType0"].keys():
-        B = np.float64(np.array(ft["PartType0"]["MagneticField"]))[subset]
-    else:
-        B = 0*x
-
-    v = np.float64(np.array(ft["PartType0"]["Velocities"]))[subset]
-    h = np.float64(np.array(ft["PartType0"]["SmoothingLength"]))[subset]
-    m = np.float64(np.array(ft["PartType0"]["Masses"]))[subset]
-
-    x = x[subset]
-    if sinkbox:
-        xchoice = np.arange(len(x))
-    else:
-        xchoice = np.random.choice(np.arange(len(x)),size=N_gas,replace=False)
-
-#    uB = np.sum(np.sum(B*B, axis=1) * 4*np.pi/3 *h**3 /32 * 3.09e21**3)* 0.03979 *5.03e-54
-    plasma_beta = 0.5*np.sum(m*np.sum(v**2,axis=1))/uB
-
-    x, v, B, h, m = x[xchoice], v[xchoice], B[xchoice], h[xchoice], m[xchoice]
-    
-    x = x*2*R
-    h = h*2*R
-    #B /= (0.5/(2*R))**1.5
-    r = np.sum(x**2,axis=1)**0.5
+if not os.path.exists(turb_path): os.makedirs(turb_path)
+fname = turb_path + "/vturb%d_sol%g_seed%d.npy"%(minmode,turb_sol, seed)
+if not os.path.isfile(fname):
+    vt = TurbField(minmode=minmode, sol_weight=turb_sol, seed=seed)
+    nmin, nmax = vt.shape[-1]// 4, 3*vt.shape[-1]//4
+    vt = vt[:,nmin:nmax, nmin:nmax, nmin:nmax]  # we take the central cube of size L/2 so that opposide sides of the cloud are not correlated
+    np.save(fname, vt)
 else:
-    x = get_glass_coords(N_gas, glass_path)
-    Nx = len(x)
-    x = 2*(x-0.5)
-    print("Computing radii...")
-    r = cdist(x, [np.zeros(3)])[:,0] #np.sum(x**2, axis=1)**0.5
-    print("Done! Sorting coordinates...")
-    x = x[r.argsort()][:N_gas]
-    print("Done! Rescaling...")
-    x *= (float(Nx) / N_gas * 4*np.pi/3 / 8)**(1./3)*R
-    print("Done! Recomupting radii...")
-    r = cdist(x, [np.zeros(3)])[:,0]
-#    r = np.sum(x**2,axis=1)**0.5
-    x, r = x/r.max(), r/r.max()
-#    rnew = r * R
-    print("Doing density profile...")
-#    if density_exponent<0:
-#        rho_form = lambda r: (r+R/1000)**(density_exponent) #change this function to get a different radial density profile; normalization does not matter as long as rmin and rmax are properly specified
-#        rmin = 0.
-#        rho_norm = quad(lambda r: rho_form(r) * 4 * np.pi * r**2, rmin, R)[0]
-#        rho = lambda r: rho_form(r) / rho_norm
-#        print(np.abs(np.log(r[::-1]**3) -  np.sort(np.log(r**3))[::-1]).max())
-#        rnew = odeint(lambda rphys, r3: np.exp(r3)/(4*np.pi*np.exp(rphys)**3*rho(np.exp(rphys))), np.log(R), np.log(r[::-1]**3), atol=1e-12, rtol=1e-12)[::-1,0]
-#        rnew = np.exp(rnew)
-#    else:
-#        print("Using constant density")
-        #rho_form = lambda r: 1. #constant density
-    rnew = r**(3. / (3+density_exponent)) * R
-#    print(rnew.shape, r.shape)
-    x=(x.T * rnew/r).T
-#    print(rnew.max())
-    r = np.sum(x**2, axis=1)**0.5
-    x, r = x[r.argsort()], r[r.argsort()]
-
-    if turb_type=='gaussian':
-#        if turb_path is not 'none': # this is for saving turbulent fields we have already generated
-        if not os.path.exists(turb_path): os.makedirs(turb_path)
-        fname = turb_path + "/vturb%d_sol%g_seed%d.npy"%(minmode,turb_sol, seed)
-        if not os.path.isfile(fname):
-            vt = TurbField(minmode=minmode, sol_weight=turb_sol, seed=seed)
-
-            nmin, nmax = vt.shape[-1]// 4, 3*vt.shape[-1]//4
-
-            vt = vt[:,nmin:nmax, nmin:nmax, nmin:nmax]  # we take the central cube of size L/2 so that opposide sides of the cloud are not correlated
-            np.save(fname, vt)
-        else:
-            vt = np.load(fname)
+    vt = np.load(fname)
+            
+xgrid = np.linspace(-R,R,vt.shape[-1])
+v = []
+for i in range(3):
+    v.append(interpolate.interpn((xgrid,xgrid,xgrid),vt[i,:,:,:],x))
+v = np.array(v).T
+print("Coordinates obtained!")
         
-        xgrid = np.linspace(-R,R,vt.shape[-1])
-        v = []
-        for i in range(3):
-            v.append(interpolate.interpn((xgrid,xgrid,xgrid),vt[i,:,:,:],x))
-        v = np.array(v).T
-    print("Coordinates obtained!")
-#x += np.random.normal(size=(N_gas,3))*R/20
-
-    
-        
-Mr = M_BH + mgas.cumsum()
-if sinkbox:
-    ugrav= G * M_gas**2 / R
-else:
-    ugrav = G * np.sum(Mr/ r * mgas)
-
+Mr = mgas.cumsum()
+ugrav = G * np.sum(Mr/ r * mgas)
+v -= np.average(v,axis=0)
+Eturb = 0.5*M_gas/N_gas*np.sum(v**2)
+v *= np.sqrt(turbulence*ugrav/Eturb)
 E_rot_target = spin * ugrav
 Rcyl = np.sqrt(x[:,0]**2+x[:,1]**2)
 omega = Rcyl**omega_exponent
 vrot = np.cross(np.c_[np.zeros_like(omega),np.zeros_like(omega),omega], x)
 Erot_actual = np.sum(0.5*mgas[:,None]*vrot**2)
 vrot *= np.sqrt(E_rot_target/Erot_actual)
-#I_z = np.sum(mgas * ()
-#omega = (2*E_rot/I_z)**0.5
-#omega = spin * np.sqrt(G*(M_BH+M_gas)/R**3)
-
-v -= np.average(v,axis=0)
-Eturb = 0.5*M_gas/N_gas*np.sum(v**2)
-v *= np.sqrt(turbulence*ugrav/Eturb)
-
 v += vrot
 
-
-if turb_type != 'full':
-    B = np.c_[np.zeros(N_gas), np.zeros(N_gas), np.ones(N_gas)]
-    uB = np.sum(np.sum(B*B, axis=1) * (R*length_unit)**3 /N_gas) * 2.463e17 
-    if (bfixed>0):
-        B = B * bfixed
-    else:
-        B = B * np.sqrt(magnetic_field*ugrav/uB) # in gauss
-
+B = np.c_[np.zeros(N_gas), np.zeros(N_gas), np.ones(N_gas)]
+vA_unit = 3.429e8 * B_unit * (M_gas)**-0.5 * R**1.5*np.sqrt(4*np.pi/3) / v_unit  # alfven speed for unit magnetic field
+uB = 0.5*M_gas*vA_unit**2 # magnetic energy we would have for unit magnetic field
+if (bfixed>0):
+    B = B * bfixed
+else:
+    B = B * np.sqrt(magnetic_field*ugrav/uB) # renormalize to desired magnetic energy
 
 v = v - np.average(v, axis=0)
 x = x - np.average(x, axis=0)
@@ -421,20 +348,6 @@ if makecylinder:
     v_cyl = np.cross([1,0,0],x_cyl,axis=-1)/R_cyl; # tangential with magnitude increasing linearly
     v_cyl *= vrms_cyl
 
-if turb_type=='full':
-    if not sinkbox:
-        import meshoid
-        M = meshoid.Meshoid(x,mgas)
-        rho, h = M.Density(), M.SmoothingLength()
-    else:
-        rho = (32*mgas/(4*np.pi/3 * h**3))
-#    uB = np.sum(np.sum(B*B, axis=1) * 4*np.pi/3 *h**3 /32 * 3.09e21**3)* 0.03979 *5.03e-46
-    beta = np.sum(0.5*mgas*np.sum(v**2,axis=1))/uB
-    B *= np.sqrt(beta/plasma_beta)
-#    uB = np.sum(np.sum(B*B, axis=1) * 4*np.pi/3 *h**3 /32 * 3.09e21**3)* 0.03979 *5.03e-54
-     
-#print(x.mean(axis=0))
-
 u = np.ones_like(mgas)*0.101/2.0 #/2 needed because it is molecular
 
 if impact_dist > 0:     
@@ -451,13 +364,11 @@ if impact_dist > 0:
     v[N_gas:] += v_impact * vrms * impact_dir
     B = np.concatenate([B,B])
     u = np.concatenate([u,u])
-    mgas = np.concatenate([mgas,mgas])
-    
-
+    mgas = np.concatenate([mgas,mgas])    
 
 u = np.ones_like(mgas)*(200/v_unit)**2 #start with specific internal energy of (200m/s)^2, this is overwritten unless starting with restart flag 2###### #0.101/2.0 #/2 needed because it is molecular
 
-if warmgas:
+if diffuse_gas:
     # assuming 10K vs 10^4K gas: factor of ~10^3 density contrast
     rho_warm = M_gas*3/(4*np.pi*R**3) / 1000
     M_warm = (boxsize**3 - (4*np.pi*R**3 / 3)) * rho_warm # mass of diffuse box-filling medium
@@ -507,95 +418,64 @@ if warmgas:
 else:
     N_warm = 0
 
-
-if turb_type!='full': 
-    rho = np.repeat(3*M_gas/(4*np.pi*R**3), len(mgas))
-    if warmgas: rho[-N_warm:] /= 1000
-    h = (32*mgas/rho)**(1./3)
+rho = np.repeat(3*M_gas/(4*np.pi*R**3), len(mgas))
+if diffuse_gas: rho[-N_warm:] /= 1000
+h = (32*mgas/rho)**(1./3)
 
 x += boxsize/2 # cloud is always centered at (boxsize/2,boxsize/2,boxsize/2)
 if makecylinder:
     x_cyl += boxsize_cyl/2
-
-if sinkbox:
-    m_min = M_gas/N_gas * 10
-    m_max = sinkbox
-    if sinkbox < m_min: print("Maximum sink mass is less than the minimum of 10 times the gas mass resolution. Increase resolution or implement a different sampling scheme.")
-
-    N_sinks = int(round(m_max/m_min))
-
-    m_sinks = (1./m_min - (1/m_min - 1/m_max) * np.random.rand(N_sinks))**-1. # randomly sample from M^-2 mass function between M_max and M_min
-    x_sinks = np.random.rand(N_sinks,3)*boxsize # random coordinates
-    v_sinks = np.random.normal(size=(N_sinks,3)) * (np.sum(v**2,axis=1).mean() / 3)**0.5 # random velocities equal to RMS gas velocity        
-
-
-
-dx= x/length_unit - np.array([1.,1.,1.])*boxsize/2/length_unit
 
 print("Writing snapshot...")
 
 F=h5py.File(filename, 'w')
 F.create_group("PartType0")
 F.create_group("Header")
-F["Header"].attrs["NumPart_ThisFile"] = [len(mgas),0,0,0,0,(1 if M_BH>0 else 0)]
-F["Header"].attrs["NumPart_Total"] = [len(mgas),0,0,0,0,(1 if M_BH>0 else 0)]
-#F["Header"].attrs["MassTable"] = [mgas.mean()/mass_unit,0,0,0,0, M_BH/mass_unit]
-F["Header"].attrs["BoxSize"] = boxsize/length_unit
+F["Header"].attrs["NumPart_ThisFile"] = [len(mgas),0,0,0,0,(1 if M_star>0 else 0)]
+F["Header"].attrs["NumPart_Total"] = [len(mgas),0,0,0,0,(1 if M_star>0 else 0)]
+F["Header"].attrs["BoxSize"] = boxsize
 F["Header"].attrs["Time"] = 0.0
-F["PartType0"].create_dataset("Masses", data=mgas/mass_unit)
-F["PartType0"].create_dataset("Coordinates", data=x/length_unit)
-F["PartType0"].create_dataset("Velocities", data=v/v_unit)
-F["PartType0"].create_dataset("ParticleIDs", data=1+np.arange(len(mgas))+(1 if M_BH>0 else 0))
-F["PartType0"].create_dataset("InternalEnergy", data=u*(1/v_unit)**2)
-#F["PartType0"].create_dataset("Density", data=rho/mass_unit/(1/length_unit)**3)
-#F["PartType0"].create_dataset("SmoothingLength", data=h*1/length_unit)
-if M_BH>0:
+F["PartType0"].create_dataset("Masses", data=mgas)
+F["PartType0"].create_dataset("Coordinates", data=x)
+F["PartType0"].create_dataset("Velocities", data=v)
+F["PartType0"].create_dataset("ParticleIDs", data=1+np.arange(len(mgas)))
+F["PartType0"].create_dataset("InternalEnergy", data=u)
+
+if M_star>0:
     F.create_group("PartType5")
     #Let's add the sink at the center
-    F["PartType5"].create_dataset("Masses", data=np.array([M_BH/mass_unit]))
-    F["PartType5"].create_dataset("Coordinates", data=np.array([1.,1.,1.])*boxsize/2/length_unit) #at the center
-    F["PartType5"].create_dataset("Velocities", data=np.array([0.,0.,0.])) #at rest
-    F["PartType5"].create_dataset("ParticleIDs", data=np.array([1]))
-    F["PartType5"].create_dataset("SmoothingLength", data=np.array([np.mean(h/length_unit)])/2.)
+    F["PartType5"].create_dataset("Masses", data=np.array([M_star]))
+    F["PartType5"].create_dataset("Coordinates", data=[x_star]) #at the center
+    F["PartType5"].create_dataset("Velocities", data=[v_star]) #at rest
+    F["PartType5"].create_dataset("ParticleIDs", data=np.array([F["PartType0/ParticleIDs"][:].max() + 1]))
     #Advanced properties for sinks
-    F["PartType5"].create_dataset("BH_Mass", data=M_BH/mass_unit) #all the mass in the sink/protostar/star
+    F["PartType5"].create_dataset("BH_Mass", data=M_star) #all the mass in the sink/protostar/star
     F["PartType5"].create_dataset("BH_Mass_AlphaDisk", data=np.array([0.])) #starts with no disk
     F["PartType5"].create_dataset("BH_Mdot", data=np.array([0.])) #starts with no mdot
     F["PartType5"].create_dataset("BH_Specific_AngMom", data=np.array([0.])) #starts with no angular momentum
     F["PartType5"].create_dataset("SinkRadius", data=np.array([softening])) #Sinkradius set to softening
     F["PartType5"].create_dataset("StellarFormationTime", data=np.array([0.]))
+    F["PartType5"].create_dataset("ProtoStellarAge", data=np.array([0.]))
+    F["PartType5"].create_dataset("ProtoStellarStage", data=np.array([5],dtype=np.int32), dtype=np.int32)
     #Stellar properties
-    if (central_star or central_SN):
-        if central_star:
-            print("Assuming central sink is a ZAMS star")
-            F["PartType5"].create_dataset("ProtoStellarStage", data=np.array([5],dtype=np.int32), dtype=np.int32) #starts as ZAMS star
-        else:
-            print("Assuming central sink is a ZAMS star about to go supernova")
-            F["PartType5"].create_dataset("ProtoStellarStage", data=np.array([6],dtype=np.int32), dtype=np.int32) #starts as ZAMS star going SN
+    #if (central_star or central_SN):
+        #if central_star:
+#       print("Assuming central sink is a ZAMS star")
+             #starts as ZAMS star
+        #else:
+            #print("Assuming central sink is a ZAMS star about to go supernova")
+            #F["PartType5"].create_dataset("ProtoStellarStage", data=np.array([6],dtype=np.int32), dtype=np.int32) #starts as ZAMS star going SN
         #Set guess for ZAMS stellar radius, will be overwritten
-        if ((M_BH)>1.0):
-            R_ZAMS = (M_BH)**0.57
-        else:
-            R_ZAMS = (M_BH)**0.8
-        F["PartType5"].create_dataset("ProtoStellarRadius_inSolar", data=np.array([R_ZAMS])) #Sinkradius set to softening
-        F["PartType5"].create_dataset("StarLuminosity_Solar", data=np.array([0.])) #dummy
-        F["PartType5"].create_dataset("Mass_D", data=np.array([0.])) #No D left
+    if ((M_star)>1.0):
+        R_ZAMS = (M_star)**0.57
     else:
-        print("Assuming central sink is a pre-collapse object")
-        F["PartType5"].create_dataset("ProtoStellarStage", data=np.array([0],dtype=np.int), dtype=np.int32) #starts as pre-collapse
-        F["PartType5"].create_dataset("ProtoStellarRadius_inSolar", data=np.array([2.])) #dummy value
-        F["PartType5"].create_dataset("StarLuminosity_Solar", data=np.array([0.])) #dummy
-        F["PartType5"].create_dataset("Mass_D", data=np.array([M_BH/mass_unit])) #100% of D left
-
+        R_ZAMS = (M_star)**0.8
+    F["PartType5"].create_dataset("ProtoStellarRadius_inSolar", data=np.array([R_ZAMS])) #Sinkradius set to softening
+    F["PartType5"].create_dataset("StarLuminosity_Solar", data=np.array([0.])) #dummy
+    F["PartType5"].create_dataset("Mass_D", data=np.array([0.])) #No D left
     
 if magnetic_field > 0.0:
-    F["PartType0"].create_dataset("MagneticField", data=B/B_unit)
-if sinkbox:
-    F.create_group("PartType5")
-    F["PartType5"].create_dataset("Masses", data=m_sinks)
-    F["PartType5"].create_dataset("Coordinates", data=x_sinks)
-    F["PartType5"].create_dataset("Velocities", data=v_sinks)
-    F["PartType5"].create_dataset("ParticleIDs", data=np.arange(len(mgas), len(mgas)+N_sinks))
+    F["PartType0"].create_dataset("MagneticField", data=B)
 F.close()
 
 if makebox:
@@ -604,16 +484,16 @@ if makebox:
     F.create_group("Header")
     F["Header"].attrs["NumPart_ThisFile"] = [len(mgas),0,0,0,0,0]
     F["Header"].attrs["NumPart_Total"] = [len(mgas),0,0,0,0,0]
-    F["Header"].attrs["MassTable"] = [M_gas/len(mgas)/mass_unit,0,0,0,0,0]
-    F["Header"].attrs["BoxSize"] = (4 * np.pi * R**3 / 3)**(1./3) / length_unit
+    F["Header"].attrs["MassTable"] = [M_gas/len(mgas),0,0,0,0,0]
+    F["Header"].attrs["BoxSize"] = (4 * np.pi * R**3 / 3)**(1./3)
     F["Header"].attrs["Time"] = 0.0
-    F["PartType0"].create_dataset("Masses", data=mgas[:len(mgas)]/mass_unit)
+    F["PartType0"].create_dataset("Masses", data=mgas[:len(mgas)])
     F["PartType0"].create_dataset("Coordinates", data = F["Header"].attrs["BoxSize"] )
     F["PartType0"].create_dataset("Velocities", data=np.zeros((len(mgas),3)))
     F["PartType0"].create_dataset("ParticleIDs", data=1+np.arange(len(mgas)))
-    F["PartType0"].create_dataset("InternalEnergy", data=u*(1/v_unit)**2)
+    F["PartType0"].create_dataset("InternalEnergy", data=u)
     if magnetic_field > 0.0:
-        F["PartType0"].create_dataset("MagneticField", data=B[:len(mgas)]/B_unit)
+        F["PartType0"].create_dataset("MagneticField", data=B[:len(mgas)])
     F.close()
     
 if makecylinder:
@@ -622,16 +502,15 @@ if makecylinder:
     F.create_group("Header")
     F["Header"].attrs["NumPart_ThisFile"] = [N_gas+N_warm_cyl,0,0,0,0,0]
     F["Header"].attrs["NumPart_Total"] = [N_gas+N_warm_cyl,0,0,0,0,0]
-    F["Header"].attrs["MassTable"] = [M_gas/N_gas/mass_unit,0,0,0,0,0]
-    F["Header"].attrs["BoxSize"] = boxsize_cyl / length_unit
+    F["Header"].attrs["MassTable"] = [M_gas/N_gas,0,0,0,0,0]
+    F["Header"].attrs["BoxSize"] = boxsize_cyl
     F["Header"].attrs["Time"] = 0.0
-    F["PartType0"].create_dataset("Masses", data=mgas/mass_unit)
-    F["PartType0"].create_dataset("Coordinates", data = x_cyl/length_unit)
-    #F["PartType0"].create_dataset("Velocities", data = np.random.randn(N_gas+N_warm_cyl,3)*vrms_cyl/v_unit) #shouldn't matter
-    F["PartType0"].create_dataset("Velocities", data=v_cyl/v_unit)
+    F["PartType0"].create_dataset("Masses", data=mgas)
+    F["PartType0"].create_dataset("Coordinates", data = x_cyl)
+    F["PartType0"].create_dataset("Velocities", data=v_cyl)
     F["PartType0"].create_dataset("ParticleIDs", data=1+np.arange(N_gas+N_warm_cyl))
-    F["PartType0"].create_dataset("InternalEnergy", data=u*(1/v_unit)**2)
+    F["PartType0"].create_dataset("InternalEnergy", data=u)
     if magnetic_field > 0.0:
-        F["PartType0"].create_dataset("MagneticField", data=B_cyl/B_unit)
+        F["PartType0"].create_dataset("MagneticField", data=B_cyl)
     F.close()
 
