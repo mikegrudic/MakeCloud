@@ -279,7 +279,6 @@ print("Done! Recomupting radii...")
 r = cdist(x, [np.zeros(3)])[:,0]
 x, r = x/r.max(), r/r.max()
 print("Doing density profile...")
-
 rnew = r**(3. / (3+density_exponent)) * R
 x=x * (rnew/r)[:,None] 
 r = np.sum(x**2, axis=1)**0.5
@@ -488,7 +487,7 @@ if makebox:
     F["Header"].attrs["BoxSize"] = (4 * np.pi * R**3 / 3)**(1./3)
     F["Header"].attrs["Time"] = 0.0
     F["PartType0"].create_dataset("Masses", data=mgas[:len(mgas)])
-    F["PartType0"].create_dataset("Coordinates", data = F["Header"].attrs["BoxSize"] )
+    F["PartType0"].create_dataset("Coordinates", data = np.random.rand(len(mgas),3)*F["Header"].attrs["BoxSize"])
     F["PartType0"].create_dataset("Velocities", data=np.zeros((len(mgas),3)))
     F["PartType0"].create_dataset("ParticleIDs", data=1+np.arange(len(mgas)))
     F["PartType0"].create_dataset("InternalEnergy", data=u)
