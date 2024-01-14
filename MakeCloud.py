@@ -159,7 +159,7 @@ else:
     if not os.path.exists(glass_path):
         import urllib.request
         print("Downloading glass file...")
-        urllib.request.urlretrieve("http://www.tapir.caltech.edu/~mgrudich/glass_orig.npy",glass_path)
+        urllib.request.urlretrieve("https://data.obs.carnegiescience.edu/starforge/glass_orig.npy",glass_path)
 
 if localdir:
     turb_path = "turb"
