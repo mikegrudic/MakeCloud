@@ -179,7 +179,8 @@ else:
 
         print("Downloading glass file...")
         urllib.request.urlretrieve(
-            "https://data.obs.carnegiescience.edu/starforge/glass_orig.npy", glass_path
+            "http://www.tapir.caltech.edu/~mgrudich/glass_orig.npy", glass_path
+#            "https://data.obs.carnegiescience.edu/starforge/glass_orig.npy", glass_path
         )
 
 if localdir:
