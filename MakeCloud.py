@@ -6,10 +6,10 @@ Usage: MakeCloud.py [options]
 
 Options:                                                                       
    -h --help            Show this screen.
-   --R=<pc>             Outer radius of the cloud in pc [default: 20.0]
-   --M=<msun>           Mass of the cloud in msun [default: 1e5]
+   --R=<pc>             Outer radius of the cloud in pc [default: 10.0]
+   --M=<msun>           Mass of the cloud in msun [default: 2e4]
    --filename=<name>    Name of the IC file to be generated
-   --N=<N>              Number of gas particles [default: 125000]
+   --N=<N>              Number of gas particles [default: 2000000]
    --density_exponent=<f>   Power law exponent of the density profile [default: 0.0]
    --spin=<f>           Spin parameter: fraction of binding energy in solid-body rotation [default: 0.0]
    --omega_exponent=<f>  Powerlaw exponent of rotational frequency as a function of cylindrical radius [default: 0.0]
@@ -295,7 +295,8 @@ replacements = {
 }
 
 for k, r in replacements.items():
-    paramsfile = paramsfile.replace(k, str(r))
+    paramsfile = paramsfile.replace(k,(r if isinstance(r,str) else '{:.2e}'.format(r)))
+
 open("params_" + filename.replace(".hdf5", "") + ".txt", "w").write(paramsfile)
 if makebox:
     replacements_box = replacements.copy()
