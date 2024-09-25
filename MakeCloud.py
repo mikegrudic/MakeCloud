@@ -13,8 +13,8 @@ Options:
    --density_exponent=<f>   Power law exponent of the density profile [default: 0.0]
    --spin=<f>           Spin parameter: fraction of binding energy in solid-body rotation [default: 0.0]
    --omega_exponent=<f>  Powerlaw exponent of rotational frequency as a function of cylindrical radius [default: 0.0]
-   --turb_slope=<s>      Slope of the turbulent power spectra [default: 2.0]
-   --turb_sol=<f>       Fraction of turbulence in solenoidal modes [default: 0.5]
+   --turb_slope=<f>      Slope of the turbulent power spectra [default: 2.0]
+   --turb_sol=<f>       Fraction of turbulence in solenoidal modes, used when turb_type is 'gaussian' [default: 0.5]
    --alpha_turb=<f>     Turbulent virial parameter (BM92 convention: 2Eturb/|Egrav|) [default: 2.]
    --bturb=<f>          Magnetic energy as a fraction of the binding energy [default: 0.1]
    --bfixed=<f>         Magnetic field in magnitude in code units, used instead of bturb if not set to zero [default: 0]
@@ -74,7 +74,7 @@ def get_glass_coords(N_gas, glass_path):
     print("Glass loaded!")
     return x
 
-def TurbField(res=256, minmode=2, maxmode = 64, slope = 2.0, sol_weight=1., seed=42):
+def TurbField(res=256, minmode=2, maxmode=64, slope = 2.0, sol_weight=1.0, seed=42):
     freqs = fftpack.fftfreq(res)
     freq3d = np.array(np.meshgrid(freqs,freqs,freqs,indexing='ij'))
     intfreq = np.around(freq3d*res)
@@ -85,14 +85,16 @@ def TurbField(res=256, minmode=2, maxmode = 64, slope = 2.0, sol_weight=1., seed
     vSqr = 0.0
     # apply ~k^-2 exp(-k^2/kmax^2) filter to white noise to get x, y, and z components of velocity field
     for i in range(3):
-        np.random.seed(seed+i)
-        rand_phase = fftpack.fftn(np.random.normal(size=kSqr.shape)) # fourier transform of white noise
-        vk = rand_phase * (float(minmode)/res)**2 / (np.power(kSqr, slope/2.0)+1e-300)
-        #vk[intkSqr < minmode**2] = 0.0     # freeze out modes lower than minmode
-        vk[intkSqr==0] = 0.0
-#        vk[intkSqr>0] *= np.exp(-minmode**2/intkSqr)
-        vk[intkSqr < minmode**2] *= intkSqr[intkSqr < minmode**2]**2/minmode**4 # smoother filter than mode-freezing; should give less "ringing" artifacts
-        vk *= np.exp(-intkSqr/maxmode**2)
+        np.random.seed(seed + i)
+        rand_phase = fftpack.fftn(
+            np.random.normal(size=kSqr.shape)
+        )  # fourier transform of white noise
+        vk = rand_phase * (float(minmode) / res) ** 2 / (np.power(kSqr, slope/2.0) + 1e-300)
+        vk[intkSqr == 0] = 0.0
+        vk[intkSqr < minmode**2] *= (
+            intkSqr[intkSqr < minmode**2] ** 2 / minmode**4
+        )  # smoother filter than mode-freezing; should give less "ringing" artifacts
+        vk *= np.exp(-intkSqr / maxmode**2)
 
         VK.append(vk)
     VK = np.array(VK)
@@ -178,15 +180,37 @@ else: # default to center of box
 
 derefinement = arguments["--derefinement"]
 
-res_effective = int(N_gas**(1.0/3.0)+0.5)
-phimode=float(arguments["--phimode"])
+res_effective = int(N_gas ** (1.0 / 3.0) + 0.5)
+phimode = float(arguments["--phimode"])
 
-filename = "M%3.2g_"%(M_gas) + ("Mstar%g_"%(M_star) if M_star>0 else "") + ("rho_exp%g_"%(-density_exponent) if density_exponent<0 else "") \
-    + "R%g_Z%g_S%g_A%g_B%g_I%g_Res%d_n%d_beta%g_sol%g"%(R,metallicity,spin,2*turbulence,magnetic_field,ISRF,res_effective,minmode,turb_slope,turb_sol) \
-    +  ("_%d"%seed)  + ("_collision_%g_%g_%g_%s"%(impact_dist,impact_param,v_impact,impact_axis) if impact_dist>0 else "") + ".hdf5"
-filename = filename.replace("+","").replace('e0','e')
+filename = (
+    "M%3.2g_" % (M_gas)
+    + ("Mstar%g_" % (M_star) if M_star > 0 else "")
+    + ("rho_exp%g_" % (-density_exponent) if density_exponent < 0 else "")
+    + "R%g_Z%g_S%g_A%g_B%g_I%g_Res%d_n%d_beta%g_sol%g"
+    % (
+        R,
+        metallicity,
+        spin,
+        2 * turbulence,
+        magnetic_field,
+        ISRF,
+        res_effective,
+        minmode,
+        turb_slope,
+        turb_sol,
+    )
+    + ("_%d" % seed)
+    + (
+        "_collision_%g_%g_%g_%s" % (impact_dist, impact_param, v_impact, impact_axis)
+        if impact_dist > 0
+        else ""
+    )
+    + ".hdf5"
+)
+filename = filename.replace("+", "").replace("e0", "e")
 filename = "".join(filename.split())
- 
+
 delta_m = M_gas/N_gas
 delta_m_solar = delta_m / mass_unit
 rho_avg = 3*M_gas/R**3/(4*np.pi)
@@ -286,12 +310,15 @@ r = np.sum(x**2, axis=1)**0.5
 r_order = r.argsort()
 x, r = np.take(x,r_order,axis=0), r[r_order]
 
-if not os.path.exists(turb_path): os.makedirs(turb_path)
-fname = turb_path + "/vturb%d_beta%g_sol%g_seed%d.npy"%(minmode,turb_slope,turb_sol, seed)
+if not os.path.exists(turb_path):
+    os.makedirs(turb_path)
+fname = turb_path + "/vturb%d_beta%g_sol%g_seed%d.npy" % (minmode, turb_slope, turb_sol, seed)
 if not os.path.isfile(fname):
     vt = TurbField(minmode=minmode, slope = turb_slope, sol_weight=turb_sol, seed=seed)
-    nmin, nmax = vt.shape[-1]// 4, 3*vt.shape[-1]//4
-    vt = vt[:,nmin:nmax, nmin:nmax, nmin:nmax]  # we take the central cube of size L/2 so that opposide sides of the cloud are not correlated
+    nmin, nmax = vt.shape[-1] // 4, 3 * vt.shape[-1] // 4
+    vt = vt[
+        :, nmin:nmax, nmin:nmax, nmin:nmax
+    ]  # we take the central cube of size L/2 so that opposide sides of the cloud are not correlated
     np.save(fname, vt)
 else:
     vt = np.load(fname)
