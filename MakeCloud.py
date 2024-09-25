@@ -78,7 +78,7 @@ def TurbField(res=256, minmode=2, maxmode = 64, slope = 2.0, sol_weight=1., seed
     freqs = fftpack.fftfreq(res)
     freq3d = np.array(np.meshgrid(freqs,freqs,freqs,indexing='ij'))
     intfreq = np.around(freq3d*res)
-    kSqr = np.sum(np.abs(freq3d)**slope,axis=0)
+    kSqr = np.sum(np.abs(freq3d)**2,axis=0)
     intkSqr = np.sum(np.abs(intfreq)**2, axis=0)
     VK = []
 
@@ -87,7 +87,7 @@ def TurbField(res=256, minmode=2, maxmode = 64, slope = 2.0, sol_weight=1., seed
     for i in range(3):
         np.random.seed(seed+i)
         rand_phase = fftpack.fftn(np.random.normal(size=kSqr.shape)) # fourier transform of white noise
-        vk = rand_phase * (float(minmode)/res)**2 / (kSqr+1e-300)
+        vk = rand_phase * (float(minmode)/res)**2 / (np.power(kSqr, slope/2.0)+1e-300)
         #vk[intkSqr < minmode**2] = 0.0     # freeze out modes lower than minmode
         vk[intkSqr==0] = 0.0
 #        vk[intkSqr>0] *= np.exp(-minmode**2/intkSqr)
