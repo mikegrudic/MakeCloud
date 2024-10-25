@@ -282,7 +282,7 @@ replacements = {
     "TURBFREQ": tcross / 20,
     "TURB_KMIN": int(100 * 2 * np.pi / L) / 100.0,
     "TURB_KMAX": int(100 * 4 * np.pi / (L) + 1) / 100.0,
-    "TURB_SIGMA": vrms,
+    "TURB_SIGMA": vrms*0.25,
     "TURB_MINLAMBDA": int(100 * R / 2) / 100,
     "TURB_MAXLAMBDA": int(100 * R * 2) / 100,
     "TURB_COHERENCE_TIME": tcross / 2,
