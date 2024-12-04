@@ -216,7 +216,7 @@ filename = (
     "M%3.2g_" % (M_gas)
     + ("Mstar%g_" % (M_star) if M_star > 0 else "")
     + ("rho_exp%g_" % (-density_exponent) if density_exponent < 0 else "")
-    + "R%g_Z%g_S%g_A%g_B%g_I%g_Res%d_n%d_beta%g_sol%g"
+    + "R%g_Z%g_S%g_A%g_B%g_I%g_Res%d_n%d_sol%g"
     % (
         R,
         metallicity,
@@ -226,7 +226,7 @@ filename = (
         ISRF,
         res_effective,
         minmode,
-        turb_slope,
+#        turb_slope,
         turb_sol,
     )
     + ("_%d" % seed)
@@ -298,7 +298,7 @@ replacements = {
     "TURBFREQ": tcross / 20,
     "TURB_KMIN": int(100 * 2 * np.pi / L) / 100.0,
     "TURB_KMAX": int(100 * 4 * np.pi / (L) + 1) / 100.0,
-    "TURB_SIGMA": vrms*0.25,
+    "TURB_SIGMA": (M_gas/2e4)**0.5 * (R/10)**-0.5 * 600 * turbulence**0.5,
     "TURB_MINLAMBDA": int(100 * R / 2) / 100,
     "TURB_MAXLAMBDA": int(100 * R * 2) / 100,
     "TURB_COHERENCE_TIME": tcross / 2,
