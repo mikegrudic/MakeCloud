@@ -49,7 +49,6 @@ Options:
    --Z=<solar>          Metallicity of the cloud in Solar units (just for params file) [default: 1.0]
    --ISRF=<solar>       Interstellar radiation background of the cloud in Solar neighborhood units (just for params file) [default: 1.0]
 """
-# Example:  python MakeCloud.py --M=1000 --N=1e7 --R=1.0 --localdir --param_only
 
 import os
 import numpy as np
@@ -59,8 +58,11 @@ import h5py
 from docopt import docopt
 
 
-def get_glass_coords(N_gas, glass_path):
-    x = np.load(glass_path)
+def get_glass_coords(N_gas, glass_path, center_on_cell=False):
+    x = h5py.File(glass_path)["Coordinates"][:]
+    if not center_on_cell: # if we don't want a cell at the exact box center
+        np.random.seed(42)
+        x = (x + np.random.rand(x.shape[1]))%1.
     Nx = len(x)
 
     while len(x) * np.pi * 4 / 3 / 8 < N_gas:
@@ -155,7 +157,6 @@ bfixed = float(arguments["--bfixed"])
 minmode = int(arguments["--minmode"])
 filename = arguments["--filename"]
 diffuse_gas = not arguments["--no_diffuse_gas"]
-localdir = arguments["--localdir"]
 param_only = arguments["--param_only"]
 B_unit = float(arguments["--B_unit"])
 length_unit = float(arguments["--length_unit"])
@@ -181,20 +182,16 @@ else:
 if arguments["--glass_path"]:
     glass_path = arguments["--glass_path"]
 else:
-    glass_path = os.path.expanduser("~") + "/glass_orig.npy"
+    glass_path = os.path.expanduser("~") + "/glass_128.hdf5"
     if not os.path.exists(glass_path):
         import urllib.request
 
         print("Downloading glass file...")
         urllib.request.urlretrieve(
-            "http://www.tapir.caltech.edu/~mgrudich/glass_orig.npy",
+            "https://users.flatironinstitute.org/~mgrudic/glass/glass_128.hdf5",
             glass_path,
             #            "https://data.obs.carnegiescience.edu/starforge/glass_orig.npy", glass_path
         )
-
-if localdir:
-    turb_path = "turb"
-    glass_path = "glass_256.npy"
 
 if arguments["--boxsize"] is not None:
     boxsize = float(arguments["--boxsize"])
@@ -393,10 +390,14 @@ print("Done! Rescaling...")
 x *= (float(Nx) / N_gas * 4 * np.pi / 3 / 8) ** (1.0 / 3) * R
 print("Done! Recomupting radii...")
 r = cdist(x, [np.zeros(3)])[:, 0]
+if np.any(r==0):
+    raise ValueError("found point with r=0 in the glass file, we don't handle this case throughout our calculations yet. Stopping.")
 x, r = x / r.max(), r / r.max()
 print("Doing density profile...")
 rnew = r ** (3.0 / (3 + density_exponent)) * R
-x = x * (rnew / r)[:, None]
+
+    
+x = (x * (rnew / r)[:, None])
 r = np.sum(x**2, axis=1) ** 0.5
 r_order = r.argsort()
 x, r = np.take(x, r_order, axis=0), r[r_order]
