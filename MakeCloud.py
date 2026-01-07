@@ -1,10 +1,10 @@
 #!/usr/bin/env python
-"""                                                                            
+"""
 MakeCloud: "Believe me, we've got some very turbulent clouds, the best clouds. You're gonna love it."
 
 Usage: MakeCloud.py [options]
 
-Options:                                                                       
+Options:
    -h --help            Show this screen.
    --R=<pc>             Outer radius of the cloud in pc [default: 10.0]
    --M=<msun>           Mass of the cloud in msun [default: 2e4]
@@ -27,7 +27,7 @@ Options:
    --x_star=<x,y,z>     Position of the star, defaults to center of the box
    --star_stage=<N>     Evolutionary stage of the star/black hole [default: 7]
    --derefinement       Apply radial derefinement to ambient cells outside of 3* cloud radius
-   --no_diffuse_gas     Remove diffuse ISM envelope fills the rest of the box with uniform density. 
+   --no_diffuse_gas     Remove diffuse ISM envelope fills the rest of the box with uniform density.
    --phimode=<f>        Relative amplitude of m=2 density perturbation (e.g. for Boss-Bodenheimer test) [default: 0.0]
    --localdir           Changes directory defaults assuming all files are used from local directory.
    --B_unit=<gauss>     Unit of magnetic field in gauss [default: 1e4]
@@ -60,9 +60,9 @@ from docopt import docopt
 
 def get_glass_coords(N_gas, glass_path, center_on_cell=False):
     x = h5py.File(glass_path)["Coordinates"][:]
-    if not center_on_cell: # if we don't want a cell at the exact box center
+    if not center_on_cell:  # if we don't want a cell at the exact box center
         np.random.seed(42)
-        x = (x + np.random.rand(x.shape[1]))%1.
+        x = (x + np.random.rand(x.shape[1])) % 1.0
     Nx = len(x)
 
     while len(x) * np.pi * 4 / 3 / 8 < N_gas:
@@ -72,18 +72,15 @@ def get_glass_coords(N_gas, glass_path, center_on_cell=False):
         )
         x = np.concatenate(
             [
-                x / 2
-                + i * np.array([0.5, 0, 0])
-                + j * np.array([0, 0.5, 0])
-                + k * np.array([0, 0, 0.5])
+                x / 2 + i * np.array([0.5, 0, 0]) + j * np.array([0, 0.5, 0]) + k * np.array([0, 0, 0.5])
                 for i in range(2)
                 for j in range(2)
                 for k in range(2)
             ]
         )
-        Nx = len(x)
     print("Glass loaded!")
-    return x
+    order = x.max(axis=1).argsort()
+    return x[order]
 
 
 def TurbField(res=256, minmode=2, maxmode=64, sol_weight=1.0, seed=42):
@@ -97,9 +94,7 @@ def TurbField(res=256, minmode=2, maxmode=64, sol_weight=1.0, seed=42):
     # apply ~k^-2 exp(-k^2/kmax^2) filter to white noise to get x, y, and z components of velocity field
     for i in range(3):
         np.random.seed(seed + i)
-        rand_phase = fftpack.fftn(
-            np.random.normal(size=kSqr.shape)
-        )  # fourier transform of white noise
+        rand_phase = fftpack.fftn(np.random.normal(size=kSqr.shape))  # fourier transform of white noise
         vk = rand_phase * (float(minmode) / res) ** 2 / (kSqr + 1e-300)
         vk[intkSqr == 0] = 0.0
         vk[intkSqr < minmode**2] *= (
@@ -117,25 +112,13 @@ def TurbField(res=256, minmode=2, maxmode=64, sol_weight=1.0, seed=42):
         for j in range(3):
             if i == j:
                 vk_new[i] += sol_weight * VK[j]
-            vk_new[i] += (
-                (1 - 2 * sol_weight)
-                * freq3d[i]
-                * freq3d[j]
-                / (kSqr + 1e-300)
-                * VK[j]
-            )
+            vk_new[i] += (1 - 2 * sol_weight) * freq3d[i] * freq3d[j] / (kSqr + 1e-300) * VK[j]
     vk_new[:, kSqr == 0] = 0.0
     VK = vk_new
 
-    vel = np.array(
-        [fftpack.ifftn(vk).real for vk in VK]
-    )  # transform back to real space
-    vel -= np.average(vel, axis=(1, 2, 3))[
-        :, np.newaxis, np.newaxis, np.newaxis
-    ]
-    vel = vel / np.sqrt(
-        np.sum(vel**2, axis=0).mean()
-    )  # normalize so that RMS is 1
+    vel = np.array([fftpack.ifftn(vk).real for vk in VK])  # transform back to real space
+    vel -= np.average(vel, axis=(1, 2, 3))[:, np.newaxis, np.newaxis, np.newaxis]
+    vel = vel / np.sqrt(np.sum(vel**2, axis=0).mean())  # normalize so that RMS is 1
     return np.array(vel)
 
 
@@ -182,15 +165,17 @@ else:
 if arguments["--glass_path"]:
     glass_path = arguments["--glass_path"]
 else:
-    glass_path = os.path.expanduser("~") + "/glass_128.hdf5"
+    prefix = os.path.expanduser("~") + "/.makecloud_glass"
+    glass_path = prefix + "/glass_256.hdf5"
     if not os.path.exists(glass_path):
+        if not os.path.isdir(prefix):
+            os.mkdir(prefix)
         import urllib.request
 
         print("Downloading glass file...")
         urllib.request.urlretrieve(
-            "https://users.flatironinstitute.org/~mgrudic/glass/glass_128.hdf5",
+            "https://users.flatironinstitute.org/~mgrudic/glass/glass_256.hdf5",
             glass_path,
-            #            "https://data.obs.carnegiescience.edu/starforge/glass_orig.npy", glass_path
         )
 
 if arguments["--boxsize"] is not None:
@@ -225,24 +210,17 @@ filename = (
         turb_sol,
     )
     + ("_%d" % seed)
-    + (
-        "_collision_%g_%g_%g_%s"
-        % (impact_dist, impact_param, v_impact, impact_axis)
-        if impact_dist > 0
-        else ""
-    )
+    + ("_collision_%g_%g_%g_%s" % (impact_dist, impact_param, v_impact, impact_axis) if impact_dist > 0 else "")
     + ".hdf5"
 )
 filename = filename.replace("+", "").replace("e0", "e")
 filename = "".join(filename.split())
 
-delta_m = M_gas / N_gas
-delta_m_solar = delta_m / mass_unit
+dm = M_gas / N_gas
+dm_solar = dm / mass_unit
 rho_avg = 3 * M_gas / R**3 / (4 * np.pi)
-if delta_m_solar < 0.1:  # if we're doing something marginally IMF-resolving
-    softening = (
-        3.11e-5  # ~6.5 AU, minimum sink radius is 2.8 times that (~18 AU)
-    )
+if dm_solar < 0.1:  # if we're doing something marginally IMF-resolving
+    softening = 3.11e-5  # ~6.5 AU, minimum sink radius is 2.8 times that (~18 AU)
     ncrit = 1e13  # ~100x the opacity limit
 else:  # something more FIRE-like, where we rely on a sub-grid prescription turning gas into star particles
     softening = 0.1
@@ -264,13 +242,9 @@ turbenergy = (
     0.019111097819633344 * vrms**3 / L
 )  # ST_Energy sets the dissipation rate of SPECIFIC energy ~ v^2 / (L/v) ~ v^3/L
 
-paramsfile = str(
-    open(
-        os.path.realpath(__file__).replace("MakeCloud.py", "params.txt"), "r"
-    ).read()
-)
+paramsfile = str(open(os.path.realpath(__file__).replace("MakeCloud.py", "params.txt"), "r").read())
 
-jet_particle_mass = min(delta_m, max(1e-4, delta_m / 10.0))
+jet_particle_mass = min(dm, max(1e-4, dm / 10.0))
 MS_wind_particle_mass = (
     jet_particle_mass / 10
 )  # MS winds have lower mdot than jets, so we should be able to better resolve them this way
@@ -287,7 +261,7 @@ replacements = {
     "OUTFOLDER": "output",
     "JET_PART_MASS": jet_particle_mass,
     "MS_WIND_PART_MASS": MS_wind_particle_mass,
-    "BH_SEED_MASS": delta_m / 2.0,
+    "BH_SEED_MASS": dm / 2.0,
     "TURBDECAY": tcross / 2,
     "TURBENERGY": turbenergy,
     "TURBFREQ": tcross / 20,
@@ -306,9 +280,7 @@ replacements = {
 }
 
 for k, r in replacements.items():
-    paramsfile = paramsfile.replace(
-        k, (r if isinstance(r, str) else "{:.2e}".format(r))
-    )
+    paramsfile = paramsfile.replace(k, (r if isinstance(r, str) else "{:.2e}".format(r)))
 
 open("params_" + filename.replace(".hdf5", "") + ".txt", "w").write(paramsfile)
 if makebox:
@@ -325,27 +297,18 @@ if makebox:
     )
     for k in replacements_box.keys():
         paramsfile = paramsfile.replace(k, str(replacements_box[k]))
-    open("params_" + filename.replace(".hdf5", "") + "_BOX.txt", "w").write(
-        paramsfile
-    )
+    open("params_" + filename.replace(".hdf5", "") + "_BOX.txt", "w").write(paramsfile)
 if makecylinder:
     # Get cylinder params
-    R_cyl = R * np.sqrt(
-        np.pi / (4 * cyl_aspect_ratio)
-    )  # surface density equivalent cylinder
+    R_cyl = R * np.sqrt(np.pi / (4 * cyl_aspect_ratio))  # surface density equivalent cylinder
     L_cyl = R_cyl * 2 * cyl_aspect_ratio
     vrms_cyl = (
-        2 * G * M_gas / L_cyl
-    ) ** 0.5 * turbulence**0.5  # the potential is different for a cylinder than for a sphere, so we need to rescale vrms to get the right alpha, using E_grav_cyl = -GM**2/L
+        (2 * G * M_gas / L_cyl) ** 0.5 * turbulence** 0.5
+    )  # the potential is different for a cylinder than for a sphere, so we need to rescale vrms to get the right alpha, using E_grav_cyl = -GM**2/L
     vrms_cyl *= 0.71  # additional scaling found numerically to make the stirring run reproduce the right alpha and filament length (similarly determined numerical factor added to GIZMO)
     tcross_cyl = 2 * R_cyl / vrms_cyl
-    boxsize_cyl = (
-        L_cyl * 1.5 + R_cyl * 5
-    )  # the box should fit the cylinder and be many times bigger than its width
-    print(
-        "Cylinder params: L=%g R=%g boxsize=%g vrms=%g"
-        % (L_cyl, R_cyl, boxsize_cyl, vrms_cyl)
-    )
+    boxsize_cyl = L_cyl * 1.5 + R_cyl * 5  # the box should fit the cylinder and be many times bigger than its width
+    print("Cylinder params: L=%g R=%g boxsize=%g vrms=%g" % (L_cyl, R_cyl, boxsize_cyl, vrms_cyl))
     replacements_cyl = replacements.copy()
     replacements_cyl["NAME"] = filename.replace(".hdf5", "_CYL")
     replacements_cyl["BOXSIZE"] = boxsize_cyl
@@ -368,15 +331,12 @@ if makecylinder:
     )
     for k in replacements_cyl.keys():
         paramsfile = paramsfile.replace(k, str(replacements_cyl[k]))
-    open("params_" + filename.replace(".hdf5", "") + "_CYL.txt", "w").write(
-        paramsfile
-    )
+    open("params_" + filename.replace(".hdf5", "") + "_CYL.txt", "w").write(paramsfile)
 
 if param_only:
     print("Parameters only run, exiting...")
     exit()
 
-dm = M_gas / N_gas
 mgas = np.repeat(dm, N_gas)
 
 x = get_glass_coords(N_gas, glass_path)
@@ -390,14 +350,16 @@ print("Done! Rescaling...")
 x *= (float(Nx) / N_gas * 4 * np.pi / 3 / 8) ** (1.0 / 3) * R
 print("Done! Recomupting radii...")
 r = cdist(x, [np.zeros(3)])[:, 0]
-if np.any(r==0):
-    raise ValueError("found point with r=0 in the glass file, we don't handle this case throughout our calculations yet. Stopping.")
+if np.any(r == 0):
+    raise ValueError(
+        "found point with r=0 in the glass file, we don't handle this case throughout our calculations yet. Stopping."
+    )
 x, r = x / r.max(), r / r.max()
 print("Doing density profile...")
 rnew = r ** (3.0 / (3 + density_exponent)) * R
 
-    
-x = (x * (rnew / r)[:, None])
+
+x = x * (rnew / r)[:, None]
 r = np.sum(x**2, axis=1) ** 0.5
 r_order = r.argsort()
 x, r = np.take(x, r_order, axis=0), r[r_order]
@@ -425,7 +387,7 @@ print("Coordinates obtained!")
 Mr = mgas.cumsum()
 ugrav = G * np.sum(Mr / r * mgas)
 v -= np.average(v, axis=0)
-Eturb = 0.5 * M_gas / N_gas * np.sum(v**2)
+Eturb = 0.5 * dm * np.sum(v**2)
 v *= np.sqrt(turbulence * ugrav / Eturb)
 E_rot_target = spin * ugrav
 Rcyl = np.sqrt(x[:, 0] ** 2 + x[:, 1] ** 2)
@@ -437,22 +399,13 @@ v += vrot
 
 B = np.c_[np.zeros(N_gas), np.zeros(N_gas), np.ones(N_gas)]
 vA_unit = (
-    3.429e8
-    * B_unit
-    * (M_gas) ** -0.5
-    * R**1.5
-    * np.sqrt(4 * np.pi / 3)
-    / v_unit
+    3.429e8 * B_unit * (M_gas) ** -0.5 * R**1.5 * np.sqrt(4 * np.pi / 3) / v_unit
 )  # alfven speed for unit magnetic field
-uB = (
-    0.5 * M_gas * vA_unit**2
-)  # magnetic energy we would have for unit magnetic field
+uB = 0.5 * M_gas * vA_unit**2  # magnetic energy we would have for unit magnetic field
 if bfixed > 0:
     B = B * bfixed
 else:
-    B = B * np.sqrt(
-        magnetic_field * ugrav / uB
-    )  # renormalize to desired magnetic energy
+    B = B * np.sqrt(magnetic_field * ugrav / uB)  # renormalize to desired magnetic energy
 
 v = v - np.average(v, axis=0)
 x = x - np.average(x, axis=0)
@@ -460,25 +413,16 @@ x = x - np.average(x, axis=0)
 r, phi = np.sum(x**2, axis=1) ** 0.5, np.arctan2(x[:, 1], x[:, 0])
 theta = np.arccos(x[:, 2] / r)
 phi += phimode * np.sin(2 * phi) / 2
-x = (
-    r[:, np.newaxis]
-    * np.c_[
-        np.cos(phi) * np.sin(theta), np.sin(phi) * np.sin(theta), np.cos(theta)
-    ]
-)
+x = r[:, np.newaxis] * np.c_[np.cos(phi) * np.sin(theta), np.sin(phi) * np.sin(theta), np.cos(theta)]
 
 if makecylinder:
 
     def ind_in_cylinder(x, L_cyl, R_cyl):
-        return (np.abs(x[:, 0]) < L_cyl / 2) & (
-            np.sum(x[:, 1:] ** 2, axis=1) < R_cyl**2
-        )
+        return (np.abs(x[:, 0]) < L_cyl / 2) & (np.sum(x[:, 1:] ** 2, axis=1) < R_cyl**2)
 
     # Just get a roughly homogeneous cylinder along the x axis, we will stir it anyway
     N_cyl = 0
-    while (
-        N_cyl <= N_gas
-    ):  # should be very unlikely that we need to repeat, but let's check to be sure
+    while N_cyl <= N_gas:  # should be very unlikely that we need to repeat, but let's check to be sure
         x_cyl = np.random.rand(2 * N_gas, 3) * 2 - 1
         x_cyl[:, 0] *= L_cyl / 2
         x_cyl[:, 1] *= R_cyl
@@ -525,23 +469,17 @@ u = (
 if diffuse_gas:
     # assuming 10K vs 10^4K gas: factor of ~10^3 density contrast
     rho_warm = M_gas * 3 / (4 * np.pi * R**3) / 1000
-    M_warm = (
-        boxsize**3 - (4 * np.pi * R**3 / 3)
-    ) * rho_warm  # mass of diffuse box-filling medium
-    N_warm = int(M_warm / (M_gas / N_gas))
     if derefinement:
+        M_warm = (boxsize**3 - (4 * np.pi * R**3 / 3)) * rho_warm  # mass of diffuse box-filling medium
+        N_warm = int(M_warm / (dm))
         x0 = get_glass_coords(N_gas, glass_path)
         Nx = len(x0)
         x0 = 2 * (x0 - 0.5)
         r0 = (x0 * x0).sum(1) ** 0.5
         x0, r0 = x0[r0.argsort()], r0[r0.argsort()]
         # first lay down the stuff within 3*R
-        N_warm = int(
-            4 * np.pi * rho_warm * (3 * R) ** 3 / 3 / dm
-        )  # number of cells within 3R
-        x_warm = (
-            x0[:N_warm] * 3 * R / r0[N_warm - 1]
-        )  # uniform density of cells within 3R
+        N_warm = int(4 * np.pi * rho_warm * (3 * R) ** 3 / 3 / dm)  # number of cells within 3R
+        x_warm = x0[:N_warm] * 3 * R / r0[N_warm - 1]  # uniform density of cells within 3R
         x0 = x0[
             N_warm:
         ]  # now we take the ones outside the initial sphere and map them to a n(R) ~ R^-3 profile so that we get constant number of cells per log radius interval
@@ -551,39 +489,31 @@ if diffuse_gas:
         x_warm = x_warm[np.max(np.abs(x_warm), axis=1) < boxsize / 2]
         N_warm = len(x_warm)
         R_warm = (x_warm * x_warm).sum(1) ** 0.5
-        mgas = np.concatenate(
-            [mgas, np.clip(dm * (R_warm / (3 * R)) ** 3, dm, np.inf)]
-        )
+        mgas = np.concatenate([mgas, np.clip(dm * (R_warm / (3 * R)) ** 3, dm, np.inf)])
     else:
-        x_warm = boxsize * np.random.rand(N_warm, 3) - boxsize / 2
+        M_warm = boxsize**3 * rho_warm  # mass of diffuse box-filling medium
+        N_warm = int(M_warm / dm)  # get glass with N_warm particles
+        x_warm = get_glass_coords(N_warm, glass_path)[:N_warm]
+        x_warm /= x_warm.max()
+        x_warm = boxsize * x_warm - boxsize / 2
         if impact_dist == 0:
             x_warm = x_warm[np.sum(x_warm**2, axis=1) > R**2]
         N_warm = len(x_warm)
-        mgas = np.concatenate(
-            [mgas, np.repeat(mgas.sum() / len(mgas), N_warm)]
-        )
+        mgas = np.concatenate([mgas, np.repeat(mgas.sum() / len(mgas), N_warm)])
     x = np.concatenate([x, x_warm])
     v = np.concatenate([v, np.zeros((N_warm, 3))])
     Bmag = np.average(np.sum(B**2, axis=1)) ** 0.5
-    B = np.concatenate(
-        [B, np.repeat(Bmag, N_warm)[:, np.newaxis] * np.array([0, 0, 1])]
-    )
+    B = np.concatenate([B, np.repeat(Bmag, N_warm)[:, np.newaxis] * np.array([0, 0, 1])])
     u = np.concatenate([u, np.repeat(101.0, N_warm)])
 
     if makecylinder:
         # The magnetic field is paralell to the cylinder (true at low densities, so probably fine for IC)
-        B_cyl = np.concatenate(
-            [B, np.repeat(Bmag, N_warm)[:, np.newaxis] * np.array([1, 0, 0])]
-        )
+        B_cyl = np.concatenate([B, np.repeat(Bmag, N_warm)[:, np.newaxis] * np.array([1, 0, 0])])
         # Add diffuse medium
         M_warm_cyl = (boxsize_cyl**3 - (4 * np.pi * R**3 / 3)) * rho_warm
-        N_warm_cyl = int(M_warm_cyl / (M_gas / N_gas))
-        x_warm = (
-            boxsize_cyl * np.random.rand(N_warm_cyl, 3) - boxsize_cyl / 2
-        )  # will be recentered later
-        x_warm = x_warm[
-            ~ind_in_cylinder(x_warm, L_cyl, R_cyl)
-        ]  # keep only warm gas outside the cylinder
+        N_warm_cyl = int(M_warm_cyl / (dm))
+        x_warm = boxsize_cyl * np.random.rand(N_warm_cyl, 3) - boxsize_cyl / 2  # will be recentered later
+        x_warm = x_warm[~ind_in_cylinder(x_warm, L_cyl, R_cyl)]  # keep only warm gas outside the cylinder
         # print("N_warm_cyl: %g N_warm_cyl_kept %g "%(N_warm_cyl,len(x_warm)))
         N_warm_cyl = len(x_warm)
         x_cyl = np.concatenate([x_cyl, x_warm])
@@ -634,34 +564,18 @@ if M_star > 0:
     F.create_group("PartType5")
     # Let's add the sink at the center
     F["PartType5"].create_dataset("Masses", data=np.array([M_star]))
-    F["PartType5"].create_dataset(
-        "Coordinates", data=[x_star]
-    )  # at the center
+    F["PartType5"].create_dataset("Coordinates", data=[x_star])  # at the center
     F["PartType5"].create_dataset("Velocities", data=[v_star])  # at rest
-    F["PartType5"].create_dataset(
-        "ParticleIDs", data=np.array([F["PartType0/ParticleIDs"][:].max() + 1])
-    )
+    F["PartType5"].create_dataset("ParticleIDs", data=np.array([F["PartType0/ParticleIDs"][:].max() + 1]))
     # Advanced properties for sinks
-    F["PartType5"].create_dataset(
-        "BH_Mass", data=M_star
-    )  # all the mass in the sink/protostar/star
-    F["PartType5"].create_dataset(
-        "BH_Mass_AlphaDisk", data=np.array([0.0])
-    )  # starts with no disk
-    F["PartType5"].create_dataset(
-        "BH_Mdot", data=np.array([0.0])
-    )  # starts with no mdot
-    F["PartType5"].create_dataset(
-        "BH_Specific_AngMom", data=np.array([0.0])
-    )  # starts with no angular momentum
-    F["PartType5"].create_dataset(
-        "SinkRadius", data=np.array([softening])
-    )  # Sinkradius set to softening
+    F["PartType5"].create_dataset("BH_Mass", data=M_star)  # all the mass in the sink/protostar/star
+    F["PartType5"].create_dataset("BH_Mass_AlphaDisk", data=np.array([0.0]))  # starts with no disk
+    F["PartType5"].create_dataset("BH_Mdot", data=np.array([0.0]))  # starts with no mdot
+    F["PartType5"].create_dataset("BH_Specific_AngMom", data=np.array([0.0]))  # starts with no angular momentum
+    F["PartType5"].create_dataset("SinkRadius", data=np.array([softening]))  # Sinkradius set to softening
     F["PartType5"].create_dataset("StellarFormationTime", data=np.array([0.0]))
     F["PartType5"].create_dataset("ProtoStellarAge", data=np.array([0.0]))
-    F["PartType5"].create_dataset(
-        "ProtoStellarStage", data=np.array([5], dtype=np.int32), dtype=np.int32
-    )
+    F["PartType5"].create_dataset("ProtoStellarStage", data=np.array([5], dtype=np.int32), dtype=np.int32)
     # Stellar properties
     # if (central_star or central_SN):
     # if central_star:
@@ -675,12 +589,8 @@ if M_star > 0:
         R_ZAMS = (M_star) ** 0.57
     else:
         R_ZAMS = (M_star) ** 0.8
-    F["PartType5"].create_dataset(
-        "ProtoStellarRadius_inSolar", data=np.array([R_ZAMS])
-    )  # Sinkradius set to softening
-    F["PartType5"].create_dataset(
-        "StarLuminosity_Solar", data=np.array([0.0])
-    )  # dummy
+    F["PartType5"].create_dataset("ProtoStellarRadius_inSolar", data=np.array([R_ZAMS]))  # Sinkradius set to softening
+    F["PartType5"].create_dataset("StarLuminosity_Solar", data=np.array([0.0]))  # dummy
     F["PartType5"].create_dataset("Mass_D", data=np.array([0.0]))  # No D left
 
 if magnetic_field > 0.0:
@@ -714,15 +624,13 @@ if makecylinder:
     F.create_group("Header")
     F["Header"].attrs["NumPart_ThisFile"] = [N_gas + N_warm_cyl, 0, 0, 0, 0, 0]
     F["Header"].attrs["NumPart_Total"] = [N_gas + N_warm_cyl, 0, 0, 0, 0, 0]
-    F["Header"].attrs["MassTable"] = [M_gas / N_gas, 0, 0, 0, 0, 0]
+    F["Header"].attrs["MassTable"] = [dm, 0, 0, 0, 0, 0]
     F["Header"].attrs["BoxSize"] = boxsize_cyl
     F["Header"].attrs["Time"] = 0.0
     F["PartType0"].create_dataset("Masses", data=mgas)
     F["PartType0"].create_dataset("Coordinates", data=x_cyl)
     F["PartType0"].create_dataset("Velocities", data=v_cyl)
-    F["PartType0"].create_dataset(
-        "ParticleIDs", data=1 + np.arange(N_gas + N_warm_cyl)
-    )
+    F["PartType0"].create_dataset("ParticleIDs", data=1 + np.arange(N_gas + N_warm_cyl))
     F["PartType0"].create_dataset("InternalEnergy", data=u)
     if magnetic_field > 0.0:
         F["PartType0"].create_dataset("MagneticField", data=B_cyl)
