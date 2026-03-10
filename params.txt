@@ -70,8 +70,9 @@ TreeDomainUpdateFrequency   0.005    % 0.0005-0.05, dept on core+particle number
 
 
 %---- (Optional) Initial hydro temperature & temperature floor (in Kelvin)
-InitGasTemp     20	    % set by IC file if =0
+InitGasTemp     1e4	    % set by IC file if =0
 MinGasTemp     	2.73	    % don't trust cooling function below ~5K, whether dust, molecular lines, or photoelectric heating
+InitRadiationTemp 20.       % Initial and/or boundary radiation temperature (for RT_INFRARED)
 
 %---- Hydro reconstruction (kernel) parameters
 DesNumNgb               32      % domain-reconstruction kernel number: 32 standard, 60-114 for quintic
