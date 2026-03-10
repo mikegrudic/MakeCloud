@@ -1,7 +1,5 @@
 #!/usr/bin/env python
 """
-MakeCloud: "Believe me, we've got some very turbulent clouds, the best clouds. You're gonna love it."
-
 Usage: MakeCloud.py [options]
 
 Options:
@@ -30,10 +28,11 @@ Options:
    --no_diffuse_gas     Remove diffuse ISM envelope fills the rest of the box with uniform density.
    --phimode=<f>        Relative amplitude of m=2 density perturbation (e.g. for Boss-Bodenheimer test) [default: 0.0]
    --localdir           Changes directory defaults assuming all files are used from local directory.
-   --B_unit=<gauss>     Unit of magnetic field in gauss [default: 1e4]
+   --B_unit=<gauss>     Unit of magnetic field in gauss [default: 1.0]
    --length_unit=<pc>   Unit of length in pc [default: 1]
    --mass_unit=<msun>   Unit of mass in M_sun [default: 1]
-   --v_unit=<m/s>       Unit of velocity in m/s [default: 1]
+   --v_unit=<m/s>       Unit of velocity in m/s [default: 1e3]
+   --unit_system=<name> Units system to adopt (options: starforge_classic (m/s - pc - Msun - T), FIRE (km/s - kpc - 1e10Msun - uG)) [default: None]
    --turb_seed=<N>      Random seed for turbulence initialization [default: 42]
    --tmax=<N>           Maximum time to run the simulation to, in units of the freefall time [default: 5]
    --nsnap=<N>          Number of snapshots per freefall time [default: 150]
@@ -144,12 +143,27 @@ minmode = int(arguments["--minmode"])
 filename = arguments["--filename"]
 diffuse_gas = not arguments["--no_diffuse_gas"]
 param_only = arguments["--param_only"]
-B_unit = float(arguments["--B_unit"])
-length_unit = float(arguments["--length_unit"])
-mass_unit = float(arguments["--mass_unit"])
-v_unit = float(arguments["--v_unit"])
-t_unit = length_unit / v_unit
-G = 4300.71 * v_unit**-2 * mass_unit / length_unit
+if arguments["--unit_system"] is not None:
+    match arguments["--unit_system"]:
+        case "starforge_classic":
+            length_unit_pc = 1
+            mass_unit_Msun = 1
+            v_unit_SI = 1
+            B_unit_gauss = 1e4
+        case "FIRE":
+            length_unit_pc = 1e3
+            mass_unit_Msun = 1e10
+            v_unit_SI = 1e3
+            B_unit_gauss = 1
+else:
+    length_unit_pc = float(arguments["--length_unit"])
+    mass_unit_Msun = float(arguments["--mass_unit"])
+    v_unit_SI = float(arguments["--v_unit"])
+    B_unit_gauss = float(arguments["--B_unit"])
+
+t_unit = length_unit_pc / v_unit_SI
+
+G = 4300.71 * v_unit_SI**-2 * mass_unit_Msun / length_unit_pc
 makebox = arguments["--makebox"]
 impact_param = float(arguments["--impact_param"])
 impact_dist = float(arguments["--impact_dist"])
@@ -221,7 +235,7 @@ filename = filename.replace("+", "").replace("e0", "e")
 filename = "".join(filename.split())
 
 dm = M_gas / N_gas
-dm_solar = dm / mass_unit
+dm_solar = dm / mass_unit_Msun
 rho_avg = 3 * M_gas / R**3 / (4 * np.pi)
 if dm_solar < 0.1:  # if we're doing something marginally IMF-resolving
     softening = 3.11e-5  # ~6.5 AU, minimum sink radius is 2.8 times that (~18 AU)
@@ -275,10 +289,10 @@ replacements = {
     "TURB_MINLAMBDA": int(100 * R / 2) / 100,
     "TURB_MAXLAMBDA": int(100 * R * 2) / 100,
     "TURB_COHERENCE_TIME": tcross / 2,
-    "UNIT_L": 3.085678e18 * length_unit,
-    "UNIT_M": 1.989e33 * mass_unit,
-    "UNIT_V": v_unit * 1e2,
-    "UNIT_B": B_unit,
+    "UNIT_L": 3.085678e18 * length_unit_pc,
+    "UNIT_M": 1.989e33 * mass_unit_Msun,
+    "UNIT_V": v_unit_SI * 1e2,
+    "UNIT_B": B_unit_gauss,
     "ZINIT": metallicity,
     "ISRF": ISRF,
 }
@@ -403,7 +417,7 @@ v += vrot
 
 B = np.c_[np.zeros(N_gas), np.zeros(N_gas), np.ones(N_gas)]
 vA_unit = (
-    3.429e8 * B_unit * (M_gas) ** -0.5 * R**1.5 * np.sqrt(4 * np.pi / 3) / v_unit
+    3.429e8 * B_unit_gauss * (M_gas) ** -0.5 * R**1.5 * np.sqrt(4 * np.pi / 3) / v_unit_SI
 )  # alfven speed for unit magnetic field
 uB = 0.5 * M_gas * vA_unit**2  # magnetic energy we would have for unit magnetic field
 if bfixed > 0:
@@ -467,7 +481,7 @@ if impact_dist > 0:
     mgas = np.concatenate([mgas, mgas])
 
 u = (
-    np.ones_like(mgas) * (200 / v_unit) ** 2
+    np.ones_like(mgas) * (200 / v_unit_SI) ** 2
 )  # start with specific internal energy of (200m/s)^2, this is overwritten unless starting with restart flag 2###### #0.101/2.0 #/2 needed because it is molecular
 
 if diffuse_gas:

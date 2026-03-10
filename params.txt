@@ -45,10 +45,10 @@ MinSizeTimestep         1.0e-15 % set this very low, or get the wrong answer
 
 
 %---- System of units
-UnitLength_in_cm            UNIT_L      % should be 1 pc
-UnitMass_in_g               UNIT_M      % should be 1 solar mass
-UnitVelocity_in_cm_per_s    UNIT_V      % should be 1 m/sec
-UnitMagneticField_in_gauss  UNIT_B      % should be 1 Tesla
+UnitLength_in_cm            UNIT_L
+UnitMass_in_g               UNIT_M
+UnitVelocity_in_cm_per_s    UNIT_V
+UnitMagneticField_in_gauss  UNIT_B
 GravityConstantInternal     0           % calculated by code if =0
 
 %---- Cosmological parameters
@@ -154,25 +154,6 @@ CritPhysDensity     RHOMAX    %  critical physical density for star formation (c
 SfEffPerFreeFall    1.0     %  SFR/(Mgas/tfreefall) for gas which meets SF criteria
 
 
-%---- sub-grid (Springel+Hernquist/GADGET/AREPO) "effective equation of state" 
-%------- star formation+feedback model (GALSF_EFFECTIVE_EQS on)
-MaxSfrTimescale     4.0         % code units (SF timescale at 2-phase threshold)
-TempSupernova       3.0e8       % in Kelvin (temp of hot gas in 2-phase model)
-TempClouds          1000.0      % in Kelvin (temp of cold gas in 2-phase model)
-FactorSN            0.1         % SNe coupling frac (frac of egy retained in hot)
-FactorEVP           3000.0      % controls Kennicutt normalization 
-FactorForSofterEQS  1.0         % interpolate between 'stiff' and isothermal EOS
-%------- the sub-grid "decoupled winds" model (GALSF_SUBGRID_WINDS on)
-WindEfficiency          2.0     % mass-loading (Mdot_wind = SFR * WindEfficiency) 
-WindEnergyFraction      0.06    % fraction of SNe energy in winds (sets velocity) 
-WindFreeTravelMaxTime   0.1     % 'free-stream time' in units of t_Hubble(z)
-WindFreeTravelDensFac   0.1     % 'free-stream' until density < this * CritPhysDensity
-%------- alternative winds (set GALSF_SUBGRID_WIND_SCALING == 1 or 2)
-%------- (scaling with local dark matter properties, as Dave/Oppenheimer/Mannucci/Illustris)
-VariableWindVelFactor    1.0    % wind velocity relative to estimated halo v_escape
-VariableWindSpecMomentum 5000.  % wind momentum per unit stellar mass (code velocity units)
-
-
 
 %-------------- FIRE (PFH) explicit star formation & feedback model (FIRE on)
 %--- initial metallicity of gas & stars in simulation 
@@ -234,19 +215,6 @@ GrackleDataFile		     CloudyData_UVB=HM2012.h5
 %------------------ Driven Turbulence (Large-Eddy boxes) -----------------
 %-------------------------------------------------------------------------
 
-%-------------- Legacy Turbulent stirring parameters (TURB_DRIVING on)
-%ST_decay       TURBDECAY	    % decay time for driving-mode phase correlations
-%ST_energy      TURBENERGY   % energy of driving-scale modes: sets norm of turb
-%ST_DtFreq      TURBFREQ    % time interval for driving updates (set by hand)
-%ST_Kmin        TURB_KMIN     % minimum driving-k: should be >=2.*M_PI/All.BoxSize
-%ST_Kmax        TURB_KMAX    % maximum driving-k: set to couple times Kmin or more if cascade desired
-%ST_SolWeight   1.0      % fractional wt of solenoidal modes (wt*curl + (1-wt)*div)
-%ST_AmplFac     1.0      % multiplies turb amplitudes
-%ST_SpectForm   3        % driving pwr-spec: 0=Ek~const; 1=sharp-peak at kc; 2=Ek~k^(-5/3); 3=Ek~k^-2
-%ST_Seed        42       % random number seed for modes (so you can reproduce it)
-%IsoSoundSpeed  200.      % initializes gas sound speed in box to this value
-%TimeBetTurbSpectrum DTSNAP % time (code units) between evaluations of turb pwrspec
-
 %-------------- Turbulent stirring parameters (TURB_DRIVING on)
 TurbDrive_ApproxRMSVturb            TURB_SIGMA
 TurbDrive_MinWavelength             TURB_MINLAMBDA 
@@ -266,31 +234,6 @@ TurbDrive_TimeBetTurbSpectrum       DTSNAP
 %-------------- Parameters for non-standard or time-dependent Gravity/Dark Energy/Expansion (GR_TABULATED_COSMOLOGY on)
 DarkEnergyConstantW       -1        % time-independent DE parameter w, used only if no table
 TabulatedCosmologyFile    CosmoTbl  % table with cosmological parameters
-
-
-%-------------------------------------------------------------
-%------------------ Solid bodies and Impacts -----------------
-%-------------------------------------------------------------
-
-%-------------- Parameters for custom Tillotson equation-of-state (EOS_TILLOTSON on)
-%--- In ICs, set "CompositionType": 0=custom,1=granite,2=basalt,3=iron,4=ice,5=olivine/dunite,6=water;
-%---   their EOS parameters will be set accordingly. If CompositionType=0, the custom parameters below
-%---   are used, matched to the definitions in Table A1 of Reinhardt+Stadel 2017,MNRAS,467,4252 (below is iron)
-Tillotson_EOS_params_a          0.5     % a parameter [dimensionless]
-Tillotson_EOS_params_b          1.5     % b parameter [dimensionless]
-Tillotson_EOS_params_u_0        9.5e10  % u_0 parameter in [erg/g]
-Tillotson_EOS_params_rho_0      7.86    % rho_0 parameter in [g/cm^3]
-Tillotson_EOS_params_A          1.28e12 % A parameter in [erg/cm^3]
-Tillotson_EOS_params_B          1.05e12 % B parameter in [erg/cm^3]
-Tillotson_EOS_params_u_s        1.42e10 % u_s parameter in [erg/g]
-Tillotson_EOS_params_u_s_prime  8.45e10 % u_s^prime parameter in [erg/g]
-Tillotson_EOS_params_alpha      5.0     % alpha parameter [dimensionless]
-Tillotson_EOS_params_beta       5.0     % beta parameter [dimensionless]
-Tillotson_EOS_params_mu         7.75e11 % elastic shear modulus in [erg/cm^3]   (used if EOS_ELASTIC is on)
-Tillotson_EOS_params_Y0         8.5e10  % hugoniot elastic limit in [erg/cm^3]  (used if EOS_ELASTIC is on)
-
-
-
 
 %--- Developer-Mode Parameters (usually hard-coded, but set manually if DEVELOPER_MODE is on) --------
 ErrTolTheta                  0.5    % 0.7=standard
