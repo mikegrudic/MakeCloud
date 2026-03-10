@@ -11,8 +11,8 @@ Options:
    --density_exponent=<f>   Power law exponent of the density profile [default: 0.0]
    --spin=<f>           Spin parameter: fraction of binding energy in solid-body rotation [default: 0.0]
    --omega_exponent=<f>  Powerlaw exponent of rotational frequency as a function of cylindrical radius [default: 0.0]
-   --turb_type=<s>      Type of initial turbulent velocity (and possibly density field): 'gaussian' or 'full' [default: gaussian]
-   --turb_sol=<f>       Fraction of turbulence in solenoidal modes, used when turb_type is 'gaussian' [default: 0.5]
+   --turb_slope=<f>      Slope of the turbulent power spectra [default: 2.0]
+   --turb_sol=<f>       Fraction of turbulence in solenoidal modes [default: 0.5]
    --alpha_turb=<f>     Turbulent virial parameter (BM92 convention: 2Eturb/|Egrav|) [default: 2.]
    --bturb=<f>          Magnetic energy as a fraction of the binding energy [default: 0.1]
    --bfixed=<f>         Magnetic field in magnitude in code units, used instead of bturb if not set to zero [default: 0]
@@ -82,7 +82,7 @@ def get_glass_coords(N_gas, glass_path, center_on_cell=False):
     return x[order]
 
 
-def TurbField(res=256, minmode=2, maxmode=64, sol_weight=1.0, seed=42):
+def TurbField(res=256, minmode=2, maxmode=64, slope=2.0, sol_weight=1.0, seed=42):
     freqs = fftpack.fftfreq(res)
     freq3d = np.array(np.meshgrid(freqs, freqs, freqs, indexing="ij"))
     intfreq = np.around(freq3d * res)
@@ -93,8 +93,10 @@ def TurbField(res=256, minmode=2, maxmode=64, sol_weight=1.0, seed=42):
     # apply ~k^-2 exp(-k^2/kmax^2) filter to white noise to get x, y, and z components of velocity field
     for i in range(3):
         np.random.seed(seed + i)
-        rand_phase = fftpack.fftn(np.random.normal(size=kSqr.shape))  # fourier transform of white noise
-        vk = rand_phase * (float(minmode) / res) ** 2 / (kSqr + 1e-300)
+        rand_phase = fftpack.fftn(
+            np.random.normal(size=kSqr.shape)
+        )  # fourier transform of white noise
+        vk = rand_phase * (float(minmode) / res) ** 2 / (np.power(kSqr, slope/2.0) + 1e-300)
         vk[intkSqr == 0] = 0.0
         vk[intkSqr < minmode**2] *= (
             intkSqr[intkSqr < minmode**2] ** 2 / minmode**4
@@ -133,6 +135,7 @@ turbulence = float(arguments["--alpha_turb"]) / 2
 seed = int(float(arguments["--turb_seed"]) + 0.5)
 tmax = int(float(arguments["--tmax"]))
 nsnap = int(float(arguments["--nsnap"]))
+turb_slope = float(arguments["--turb_slope"])
 turb_sol = float(arguments["--turb_sol"])
 magnetic_field = float(arguments["--bturb"])
 bfixed = float(arguments["--bfixed"])
@@ -221,6 +224,7 @@ filename = (
         ISRF,
         res_effective,
         minmode,
+#        turb_slope,
         turb_sol,
     )
     + ("_%d" % seed)
@@ -281,7 +285,7 @@ replacements = {
     "TURBFREQ": tcross / 20,
     "TURB_KMIN": int(100 * 2 * np.pi / L) / 100.0,
     "TURB_KMAX": int(100 * 4 * np.pi / (L) + 1) / 100.0,
-    "TURB_SIGMA": vrms,
+    "TURB_SIGMA": (M_gas/2e4)**0.5 * (R/10)**-0.5 * 600 * turbulence**0.5,
     "TURB_MINLAMBDA": int(100 * R / 2) / 100,
     "TURB_MAXLAMBDA": int(100 * R * 2) / 100,
     "TURB_COHERENCE_TIME": tcross / 2,
@@ -380,9 +384,9 @@ x, r = np.take(x, r_order, axis=0), r[r_order]
 
 if not os.path.exists(turb_path):
     os.makedirs(turb_path)
-fname = turb_path + "/vturb%d_sol%g_seed%d.npy" % (minmode, turb_sol, seed)
+fname = turb_path + "/vturb%d_beta%g_sol%g_seed%d.npy" % (minmode, turb_slope, turb_sol, seed)
 if not os.path.isfile(fname):
-    vt = TurbField(minmode=minmode, sol_weight=turb_sol, seed=seed)
+    vt = TurbField(minmode=minmode, slope = turb_slope, sol_weight=turb_sol, seed=seed)
     nmin, nmax = vt.shape[-1] // 4, 3 * vt.shape[-1] // 4
     vt = vt[
         :, nmin:nmax, nmin:nmax, nmin:nmax
