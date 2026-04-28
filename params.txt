@@ -180,27 +180,27 @@ InterstellarRadiationFieldStrength  ISRF % interstellar radiation field intensit
 
 %-------------- Black Hole accretion & formation (BLACK_HOLES on)
 %--- formation/seeding  
-SeedBlackHoleMass            BH_SEED_MASS    % initial mass (on-the-fly or single galaxy)
+SeedSinkMass            BH_SEED_MASS    % initial mass (on-the-fly or single galaxy)
 SeedAlphaDiskMass            0.0        % initial mass in the alpha disk (BH_ALPHADISK_ACCRETION)
-SeedBlackHoleMinRedshift     2.0        % minimum redshift where new BH particles are seeded (lower-z ceases seeding)
-SeedBlackHoleMassSigma       0.5        % lognormal standard deviation (in dex) in initial BH seed masses
+SeedSinkMinRedshift     2.0        % minimum redshift where new BH particles are seeded (lower-z ceases seeding)
+SeedSinkMassSigma       0.5        % lognormal standard deviation (in dex) in initial BH seed masses
 %----- (specific options for on-the-fly friends-of-friends based BH seeding: FOF on)
 MinFoFMassForNewSeed         10.	    % minimum mass of FOF group (stars or DM) to get seed, in code units
 TimeBetOnTheFlyFoF           1.01       % time (in code units, e.g. scale-factor) between on-the-fly FOF searches
 %--- accretion
-BlackHoleAccretionFactor     1.0	    % multiplier for mdot (relative to model)
-BlackHoleEddingtonFactor     1e100	    % fraction of eddington to cap (can be >1) 
-BlackHoleNgbFactor           1.0	    % multiplier for kernel neighbors for BH 
-BlackHoleMaxAccretionRadius  BOXSIZE	    % max radius for BH neighbor search/accretion (code units)
-BlackHoleRadiativeEfficiency 5e-7        % radiative efficiency (for accretion and feedback)
+SinkAccretionFactor     1.0	    % multiplier for mdot (relative to model)
+SinkEddingtonFactor     1e100	    % fraction of eddington to cap (can be >1) 
+SinkNgbFactor           1.0	    % multiplier for kernel neighbors for BH 
+SinkMaxAccretionRadius  BOXSIZE	    % max radius for BH neighbor search/accretion (code units)
+SinkRadiativeEfficiency 5e-7        % radiative efficiency (for accretion and feedback)
 %--- feedback 
-BlackHoleFeedbackFactor      1.0	    % generic feedback strength multiplier 
+SinkFeedbackFactor      1.0	    % generic feedback strength multiplier 
 BH_FluxMomentumFactor        0.0	    % multiply radiation pressure (BH_PHOTONMOMENTUM), set it to zero to avoid launching gas from rad. pressure 
-BAL_f_accretion              0.7        % fraction of gas swallowed by BH (BH_WIND options)
-BAL_v_outflow                100.	    % velocity (km/s) of BAL outflow (BH_WIND options)
-BAL_internal_temperature     1.0e3      % internal temperature (K) of BAL outflow (BH_WIND_SPAWN)
-BAL_wind_particle_mass       JET_PART_MASS     % mass of 'virtual wind particles' in code units (BH_WIND_SPAWN)
-BAL_wind_particle_mass_MS    MS_WIND_PART_MASS     % mass of 'virtual wind particles' in MS stellar winds, if 0 then BAL_wind_particle_mass is used, in code units (SINGLE_STAR_FB_WINDS)
+Sink_f_accretion              0.7        % fraction of gas swallowed by BH (BH_WIND options)
+Sink_v_outflow                100.	    % velocity (km/s) of BAL outflow (BH_WIND options)
+Sink_internal_temperature     1.0e3      % internal temperature (K) of BAL outflow (BH_WIND_SPAWN)
+Sink_wind_particle_mass       JET_PART_MASS     % mass of 'virtual wind particles' in code units (BH_WIND_SPAWN)
+Sink_wind_particle_mass_MS    MS_WIND_PART_MASS     % mass of 'virtual wind particles' in MS stellar winds, if 0 then Sink_wind_particle_mass is used, in code units (SINGLE_STAR_FB_WINDS)
 
 
 %-------------------------------------------------------------------------
