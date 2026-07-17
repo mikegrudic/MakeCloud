@@ -73,6 +73,8 @@ def MakeCloud(
     R=10.0,
     M=2e4,
     N=2000000,
+    nH=None,
+    dm=None,
     density_exponent=0.0,
     spin=0.0,
     omega_exponent=0.0,
@@ -119,7 +121,12 @@ def MakeCloud(
     Returns the filename of the generated IC file.
     """
     R = float(R)
+    if nH is not None:
+        # nH = 3M/(4piR^3) * 0.71/m_H  =>  M [Msun] = nH * m_H/0.71 * (4pi/3) * R_cm^3 / Msun_g
+        M = float(nH) * (1.673e-24 / 0.71) * (4 * np.pi / 3) * (R * 3.086e18) ** 3 / 1.989e33
     M_gas = float(M)
+    if dm is not None:
+        N = M_gas / float(dm)
     N_gas = int(float(N) + 0.5)
     M_star = float(Mstar)
 

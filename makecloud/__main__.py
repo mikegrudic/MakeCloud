@@ -6,6 +6,8 @@ Options:
    --R=<pc>             Outer radius of the cloud in pc [default: 10.0]
    --M=<msun>           Mass of the cloud in msun [default: 2e4]
    --N=<N>              Number of gas particles [default: 2000000]
+   --nH=<cm^-3>         Mean cloud hydrogen number density; overrides M if set
+   --dm=<msun>          Target particle mass in msun; overrides N if set
    --density_exponent=<f>   Power law exponent of the density profile [default: 0.0]
    --spin=<f>           Spin parameter: fraction of binding energy in solid-body rotation [default: 0.0]
    --omega_exponent=<f>  Powerlaw exponent of rotational frequency as a function of cylindrical radius [default: 0.0]
