@@ -26,6 +26,7 @@ Options:
    --star_stage=<N>     Evolutionary stage of the star/black hole [default: 7]
    --derefinement       Apply radial derefinement to ambient cells outside of 3* cloud radius
    --no_diffuse_gas     Remove diffuse ISM envelope fills the rest of the box with uniform density.
+   --density_contrast=<f>  Density contrast between cloud and diffuse ISM [default: 1000]
    --phimode=<f>        Relative amplitude of m=2 density perturbation (e.g. for Boss-Bodenheimer test) [default: 0.0]
    --localdir           Changes directory defaults assuming all files are used from local directory.
    --B_unit=<gauss>     Unit of magnetic field in gauss [default: 1.0]
@@ -142,6 +143,7 @@ bfixed = float(arguments["--bfixed"])
 minmode = int(arguments["--minmode"])
 filename = arguments["--filename"]
 diffuse_gas = not arguments["--no_diffuse_gas"]
+density_contrast = float(arguments["--density_contrast"])
 param_only = arguments["--param_only"]
 if arguments["--unit_system"] is not None:
     match arguments["--unit_system"]:
@@ -485,8 +487,7 @@ u = (
 )  # start with specific internal energy of (200m/s)^2, this is overwritten unless starting with restart flag 2###### #0.101/2.0 #/2 needed because it is molecular
 
 if diffuse_gas:
-    # assuming 10K vs 10^4K gas: factor of ~10^3 density contrast
-    rho_warm = M_gas * 3 / (4 * np.pi * R**3) / 1000
+    rho_warm = M_gas * 3 / (4 * np.pi * R**3) / density_contrast
     if derefinement:
         M_warm = (boxsize**3 - (4 * np.pi * R**3 / 3)) * rho_warm  # mass of diffuse box-filling medium
         N_warm = int(M_warm / (dm))
