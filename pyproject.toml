@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "makecloud"
+version = "1.0.0"
+description = "Generate molecular cloud initial conditions for GIZMO/GADGET simulations"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy",
+    "scipy",
+    "h5py",
+    "docopt-ng",
+]
+
+[project.scripts]
+MakeCloud = "makecloud.__main__:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+
+[tool.setuptools.package-data]
+makecloud = ["params.txt"]
