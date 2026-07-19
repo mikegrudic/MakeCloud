@@ -15,7 +15,8 @@ Options:
    --turb_sol=<f>       Fraction of turbulence in solenoidal modes [default: 0.5]
    --alpha_turb=<f>     Turbulent virial parameter (BM92 convention: 2Eturb/|Egrav|) [default: 2.]
    --bturb=<f>          Magnetic energy as a fraction of the binding energy [default: 0.1]
-   --bfixed=<f>         Magnetic field in magnitude in code units, used instead of bturb if not set to zero [default: 0]
+   --bfixed=<f>         Deprecated: use --B instead [default: 0]
+   --B=<Bx,By,Bz>      Magnetic field in code units: 1 value sets magnitude along z, 3 comma-separated values set the full vector. Overrides bturb and bfixed.
    --minmode=<N>        Minimum populated turbulent wavenumber for Gaussian initial velocity field, in units of pi/R [default: 2]
    --turb_path=<name>   Path to store turbulent velocity fields so that we only need to generate them once (defaults to ~/turb)
    --glass_path=<name>  Contains the the path of the glass file (defaults to your home directory)
@@ -57,6 +58,18 @@ def main():
     kwargs = {k[2:]: v for k, v in docopt(__doc__).items() if k != "--help"}
     if kwargs["unit_system"] == "None":
         kwargs["unit_system"] = None
+    if float(kwargs["bfixed"]) != 0.0:
+        import warnings
+        warnings.warn("--bfixed is deprecated; use --B instead", DeprecationWarning, stacklevel=2)
+    if kwargs["B"] is not None:
+        vals = [float(v) for v in kwargs["B"].split(",")]
+        if len(vals) == 1:
+            kwargs["B_fixed"] = vals[0]
+        elif len(vals) == 3:
+            kwargs["B_fixed"] = vals
+        else:
+            raise ValueError("--B must be 1 or 3 comma-separated values")
+    del kwargs["B"]
     MakeCloud(**kwargs)
 
 

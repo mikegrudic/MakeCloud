@@ -83,6 +83,7 @@ def MakeCloud(
     alpha_turb=2.0,
     bturb=0.1,
     bfixed=0.0,
+    B_fixed=None,
     minmode=2,
     turb_path=None,
     glass_path=None,
@@ -403,7 +404,15 @@ def MakeCloud(
         3.429e8 * B_unit_gauss * (M_gas) ** -0.5 * R**1.5 * np.sqrt(4 * np.pi / 3) / v_unit_SI
     )
     uB = 0.5 * M_gas * vA_unit**2
-    if bfixed > 0:
+    if B_fixed is not None:
+        B_vec = np.atleast_1d(np.array(B_fixed, dtype=float))
+        if B_vec.shape == (1,):
+            B = np.c_[np.zeros(N_gas), np.zeros(N_gas), np.full(N_gas, B_vec[0])]
+        elif B_vec.shape == (3,):
+            B = np.tile(B_vec, (N_gas, 1))
+        else:
+            raise ValueError("B must be a scalar or 3-element vector")
+    elif bfixed > 0:
         B = B * bfixed
     else:
         B = B * np.sqrt(magnetic_field * ugrav / uB)
