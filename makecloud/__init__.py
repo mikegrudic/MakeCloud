@@ -92,6 +92,7 @@ def MakeCloud(
     v_star=None,
     x_star=None,
     star_stage=5,
+    star_age=0.0,
     derefinement=False,
     no_diffuse_gas=False,
     density_contrast=1000.0,
@@ -107,6 +108,7 @@ def MakeCloud(
     param_only=False,
     fixed_ncrit=0.0,
     makebox=False,
+    Lbox=None,
     impact_dist=0.0,
     impact_param=0.0,
     v_impact=1.0,
@@ -150,6 +152,7 @@ def MakeCloud(
     bfixed = float(bfixed)
     minmode = int(minmode)
     star_stage = int(float(star_stage))
+    star_age = float(star_age)
     diffuse_gas = not no_diffuse_gas
     density_contrast = float(density_contrast)
     impact_param = float(impact_param)
@@ -285,7 +288,7 @@ def MakeCloud(
         "TURBFREQ": tcross / 20,
         "TURB_KMIN": int(100 * 2 * np.pi / L) / 100.0,
         "TURB_KMAX": int(100 * 4 * np.pi / (L) + 1) / 100.0,
-        "TURB_SIGMA": (M_gas / 2e4) ** 0.5 * (R / 10) ** -0.5 * 600 * turbulence**0.5,
+        "TURB_SIGMA": (M_gas / 2e4) ** 0.5 * (R / 10) ** -0.5 * 600 / v_unit_SI * turbulence**0.5,
         "TURB_MINLAMBDA": int(100 * R / 2) / 100,
         "TURB_MAXLAMBDA": int(100 * R * 2) / 100,
         "TURB_COHERENCE_TIME": tcross / 2,
@@ -303,11 +306,12 @@ def MakeCloud(
     open("params_" + filename.replace(".hdf5", "") + ".txt", "w").write(paramsfile)
 
     if makebox:
+        box_side = float(Lbox) if Lbox is not None else 2 * R
         replacements_box = replacements.copy()
         replacements_box["NAME"] = filename.replace(".hdf5", "_BOX")
-        replacements_box["BOXSIZE"] = L
-        replacements_box["TURB_MINLAMBDA"] = int(100 * L / 2) / 100
-        replacements_box["TURB_MAXLAMBDA"] = int(100 * L * 2) / 100
+        replacements_box["BOXSIZE"] = box_side
+        replacements_box["TURB_MINLAMBDA"] = int(100 * box_side / 2) / 100
+        replacements_box["TURB_MAXLAMBDA"] = int(100 * box_side * 2) / 100
         paramsfile_box = _read_params_template()
         for k in replacements_box.keys():
             paramsfile_box = paramsfile_box.replace(k, str(replacements_box[k]))
@@ -554,8 +558,8 @@ def MakeCloud(
         F["PartType5"].create_dataset("BH_Mdot", data=np.array([0.0]))
         F["PartType5"].create_dataset("BH_Specific_AngMom", data=np.array([0.0]))
         F["PartType5"].create_dataset("SinkRadius", data=np.array([softening]))
-        F["PartType5"].create_dataset("StellarFormationTime", data=np.array([0.0]))
-        F["PartType5"].create_dataset("ProtoStellarAge", data=np.array([0.0]))
+        F["PartType5"].create_dataset("StellarFormationTime", data=np.array([-star_age]))
+        F["PartType5"].create_dataset("ProtoStellarAge", data=np.array([star_age]))
         F["PartType5"].create_dataset(
             "ProtoStellarStage", data=np.array([star_stage], dtype=np.int32), dtype=np.int32
         )
@@ -576,7 +580,7 @@ def MakeCloud(
         F["Header"].attrs["NumPart_ThisFile"] = [len(mgas), 0, 0, 0, 0, 0]
         F["Header"].attrs["NumPart_Total"] = [len(mgas), 0, 0, 0, 0, 0]
         F["Header"].attrs["MassTable"] = [M_gas / len(mgas), 0, 0, 0, 0, 0]
-        F["Header"].attrs["BoxSize"] = (4 * np.pi * R**3 / 3) ** (1.0 / 3)
+        F["Header"].attrs["BoxSize"] = box_side
         F["Header"].attrs["Time"] = 0.0
         F["PartType0"].create_dataset("Masses", data=mgas)
         F["PartType0"].create_dataset(

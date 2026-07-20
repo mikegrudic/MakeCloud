@@ -25,6 +25,7 @@ Options:
    --v_star=<vx,vy,vz>  Velocity of the star [default: 0.0,0.0,0.0]
    --x_star=<x,y,z>     Position of the star, defaults to center of the box
    --star_stage=<N>     Evolutionary stage of the star/black hole [default: 5]
+   --star_age=<t>       Age of the star in code units [default: 0.0]
    --derefinement       Apply radial derefinement to ambient cells outside of 3* cloud radius
    --no_diffuse_gas     Remove diffuse ISM envelope fills the rest of the box with uniform density.
    --density_contrast=<f>  Density contrast between cloud and diffuse ISM [default: 1000]
@@ -40,6 +41,7 @@ Options:
    --param_only         Just makes the parameters file, not the IC
    --fixed_ncrit=<f>    Fixes ncrit to a specific value [default: 0.0]
    --makebox            Creates a second box IC of equivalent volume and mass to the cloud
+   --L=<pc>             Box side length for --makebox, overrides --R (half-length = L/2) [default: None]
    --impact_dist=<b>    Initial separation between cloud centers of mass in units of the cloud radius  (0 is no cloud-cloud collision) [default: 0.0]
    --impact_param=<b>   Impact parameter of cloud-cloud collision in units of the cloud radius [default: 0.0]
    --v_impact=<v>       Impact velocity, in units of the cloud's RMS turbulent velocity [default: 1.0]
@@ -58,6 +60,9 @@ def main():
     kwargs = {k[2:]: v for k, v in docopt(__doc__).items() if k != "--help"}
     if kwargs["unit_system"] == "None":
         kwargs["unit_system"] = None
+    if kwargs["L"] == "None":
+        kwargs["L"] = None
+    kwargs["Lbox"] = kwargs.pop("L")
     if float(kwargs["bfixed"]) != 0.0:
         import warnings
         warnings.warn("--bfixed is deprecated; use --B instead", DeprecationWarning, stacklevel=2)
