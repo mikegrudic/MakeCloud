@@ -22,6 +22,7 @@ Options:
    --glass_path=<name>  Contains the the path of the glass file (defaults to your home directory)
    --boxsize=<f>        Simulation box size
    --Mstar=<msun>       Mass of the star/black hole, if any [default: 0.0]
+   --star_list=<file>   ASCII file with one star per row: mass(Msun) age(code) x y z (code). Overrides --Mstar/--star_age/--x_star. [default: None]
    --v_star=<vx,vy,vz>  Velocity of the star [default: 0.0,0.0,0.0]
    --x_star=<x,y,z>     Position of the star, defaults to center of the box
    --star_stage=<N>     Evolutionary stage of the star/black hole [default: 5]
@@ -60,6 +61,8 @@ def main():
     kwargs = {k[2:]: v for k, v in docopt(__doc__).items() if k != "--help"}
     if kwargs["unit_system"] == "None":
         kwargs["unit_system"] = None
+    if kwargs["star_list"] == "None":
+        kwargs["star_list"] = None
     if kwargs["L"] == "None":
         kwargs["L"] = None
     kwargs["Lbox"] = kwargs.pop("L")
