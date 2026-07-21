@@ -71,7 +71,7 @@ def TurbField(res=256, minmode=2, maxmode=64, slope=2.0, sol_weight=1.0, seed=42
 
 def MakeCloud(
     R=10.0,
-    M=2e4,
+    M=None,
     N=2000000,
     nH=None,
     dm=None,
@@ -125,10 +125,20 @@ def MakeCloud(
     Returns the filename of the generated IC file.
     """
     R = float(R)
-    if nH is not None:
+    if nH is not None and M is not None:
+        # Both nH and M given: infer R from them
+        # nH = 3M/(4piR^3) * 0.71/m_H  =>  R [pc] = (3M/(4pi*nH*m_H/0.71) * Msun_g / (pc_cm)^3)^(1/3)
+        R = (float(M) * 1.989e33 / (float(nH) * (1.673e-24 / 0.71)) * 3 / (4 * np.pi)) ** (1.0 / 3) / 3.086e18
+        print("nH and M both specified: inferred R = %.3g pc" % R)
+        M_gas = float(M)
+    elif nH is not None:
+        # Only nH given: infer M from R and nH
         # nH = 3M/(4piR^3) * 0.71/m_H  =>  M [Msun] = nH * m_H/0.71 * (4pi/3) * R_cm^3 / Msun_g
-        M = float(nH) * (1.673e-24 / 0.71) * (4 * np.pi / 3) * (R * 3.086e18) ** 3 / 1.989e33
-    M_gas = float(M)
+        M_gas = float(nH) * (1.673e-24 / 0.71) * (4 * np.pi / 3) * (R * 3.086e18) ** 3 / 1.989e33
+    elif M is not None:
+        M_gas = float(M)
+    else:
+        M_gas = 2e4
     if dm is not None:
         N = M_gas / float(dm)
     N_gas = int(float(N) + 0.5)

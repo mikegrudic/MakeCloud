@@ -4,7 +4,7 @@ Usage: MakeCloud [options]
 Options:
    -h --help            Show this screen.
    --R=<pc>             Outer radius of the cloud in pc [default: 10.0]
-   --M=<msun>           Mass of the cloud in msun [default: 2e4]
+   --M=<msun>           Mass of the cloud in msun [default: None]
    --N=<N>              Number of gas particles [default: 2000000]
    --nH=<cm^-3>         Mean cloud hydrogen number density; overrides M if set
    --dm=<msun>          Target particle mass in msun; overrides N if set
@@ -65,6 +65,8 @@ def main():
         kwargs["star_list"] = None
     if kwargs["L"] == "None":
         kwargs["L"] = None
+    if kwargs["M"] == "None":
+        kwargs["M"] = None
     kwargs["Lbox"] = kwargs.pop("L")
     if float(kwargs["bfixed"]) != 0.0:
         import warnings

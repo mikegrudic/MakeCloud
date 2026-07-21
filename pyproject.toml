@@ -16,6 +16,7 @@ dependencies = [
 
 [project.scripts]
 MakeCloud = "makecloud.__main__:main"
+AddStarToSnapshot = "makecloud._addstar:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
