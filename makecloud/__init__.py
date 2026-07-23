@@ -13,6 +13,28 @@ def _read_params_template():
     return files("makecloud").joinpath("params.txt").read_text()
 
 
+def _get_box_glass(N, cache_dir):
+    import urllib.request
+
+    if not os.path.isdir(cache_dir):
+        os.makedirs(cache_dir)
+    cbrt = round(N ** (1 / 3))
+    path = os.path.join(cache_dir, "glass_%d.hdf5" % cbrt)
+    if not os.path.exists(path):
+        print("Downloading glass_%d.hdf5..." % cbrt)
+        urllib.request.urlretrieve(
+            "https://users.flatironinstitute.org/~mgrudic/glass/glass_%d.hdf5" % cbrt,
+            path,
+        )
+    x = h5py.File(path)["Coordinates"][:]
+    while len(x) < N:
+        x = np.concatenate([
+            x / 2 + np.array([i * 0.5, j * 0.5, k * 0.5])
+            for i in range(2) for j in range(2) for k in range(2)
+        ])
+    return x[:N]
+
+
 def get_glass_coords(N_gas, glass_path, center_on_cell=False):
     x = h5py.File(glass_path)["Coordinates"][:]
     if not center_on_cell:
@@ -131,6 +153,11 @@ def MakeCloud(
         R = (float(M) * 1.989e33 / (float(nH) * (1.673e-24 / 0.71)) * 3 / (4 * np.pi)) ** (1.0 / 3) / 3.086e18
         print("nH and M both specified: inferred R = %.3g pc" % R)
         M_gas = float(M)
+    elif nH is not None and makebox and Lbox is not None:
+        # makebox mode with nH: set R=L/2 and compute mass from box volume so the box IC has the correct mean density
+        R = float(Lbox) / 2
+        M_gas = float(nH) * (1.673e-24 / 0.71) * float(Lbox) ** 3 * (3.086e18) ** 3 / 1.989e33
+        print("makebox nH mode: R=%.4g pc, box M = %.3g Msun (nH=%.3g in L=%.4g pc box)" % (R, M_gas, float(nH), float(Lbox)))
     elif nH is not None:
         # Only nH given: infer M from R and nH
         # nH = 3M/(4piR^3) * 0.71/m_H  =>  M [Msun] = nH * m_H/0.71 * (4pi/3) * R_cm^3 / Msun_g
@@ -311,10 +338,11 @@ def MakeCloud(
         "ISRF": ISRF,
     }
 
-    paramsfile = _read_params_template()
-    for k, r in replacements.items():
-        paramsfile = paramsfile.replace(k, (r if isinstance(r, str) else "{:.2e}".format(r)))
-    open("params_" + filename.replace(".hdf5", "") + ".txt", "w").write(paramsfile)
+    if not makebox:
+        paramsfile = _read_params_template()
+        for k, r in replacements.items():
+            paramsfile = paramsfile.replace(k, (r if isinstance(r, str) else "{:.2e}".format(r)))
+        open("params_" + filename.replace(".hdf5", "") + ".txt", "w").write(paramsfile)
 
     if makebox:
         box_side = float(Lbox) if Lbox is not None else 2 * R
@@ -543,84 +571,126 @@ def MakeCloud(
 
     print("Writing snapshot...")
 
-    F = h5py.File(filename, "w")
-    F.create_group("PartType0")
-    F.create_group("Header")
-    if star_list is not None:
-        sl = np.atleast_2d(np.loadtxt(star_list))
-        star_masses = sl[:, 0]
-        star_ages = sl[:, 1]
-        star_coords = sl[:, 2:5]
-        star_vels = sl[:, 5:8] if sl.shape[1] >= 8 else np.zeros((len(star_masses), 3))
-        N_stars = len(star_masses)
-    else:
-        N_stars = 1 if M_star > 0 else 0
-
-    F["Header"].attrs["NumPart_ThisFile"] = [len(mgas), 0, 0, 0, 0, N_stars]
-    F["Header"].attrs["NumPart_Total"] = [len(mgas), 0, 0, 0, 0, N_stars]
-    F["Header"].attrs["BoxSize"] = boxsize
-    F["Header"].attrs["Time"] = 0.0
-    F["PartType0"].create_dataset("Masses", data=mgas)
-    F["PartType0"].create_dataset("Coordinates", data=x)
-    F["PartType0"].create_dataset("Velocities", data=v)
-    F["PartType0"].create_dataset("ParticleIDs", data=1 + np.arange(len(mgas)))
-    F["PartType0"].create_dataset("InternalEnergy", data=u)
-
-    if N_stars > 0:
+    if not makebox:
+        F = h5py.File(filename, "w")
+        F.create_group("PartType0")
+        F.create_group("Header")
         if star_list is not None:
-            pt5_masses = star_masses
-            pt5_ages = star_ages
-            pt5_coords = star_coords
-            pt5_vels = star_vels
+            sl = np.atleast_2d(np.loadtxt(star_list))
+            star_masses = sl[:, 0]
+            star_ages = sl[:, 1]
+            star_coords = sl[:, 2:5]
+            star_vels = sl[:, 5:8] if sl.shape[1] >= 8 else np.zeros((len(star_masses), 3))
+            N_stars = len(star_masses)
         else:
+            N_stars = 1 if M_star > 0 else 0
+
+        F["Header"].attrs["NumPart_ThisFile"] = [len(mgas), 0, 0, 0, 0, N_stars]
+        F["Header"].attrs["NumPart_Total"] = [len(mgas), 0, 0, 0, 0, N_stars]
+        F["Header"].attrs["BoxSize"] = boxsize
+        F["Header"].attrs["Time"] = 0.0
+        F["PartType0"].create_dataset("Masses", data=mgas)
+        F["PartType0"].create_dataset("Coordinates", data=x)
+        F["PartType0"].create_dataset("Velocities", data=v)
+        F["PartType0"].create_dataset("ParticleIDs", data=1 + np.arange(len(mgas)))
+        F["PartType0"].create_dataset("InternalEnergy", data=u)
+
+        if N_stars > 0:
+            if star_list is not None:
+                pt5_masses = star_masses
+                pt5_ages = star_ages
+                pt5_coords = star_coords
+                pt5_vels = star_vels
+            else:
+                pt5_masses = np.array([M_star])
+                pt5_ages = np.array([star_age])
+                pt5_coords = np.array([x_star])
+                pt5_vels = np.array([v_star])
+            R_ZAMS = np.where(pt5_masses > 1.0, pt5_masses**0.57, pt5_masses**0.8)
+            id_offset = F["PartType0/ParticleIDs"][:].max() + 1
+            F.create_group("PartType5")
+            F["PartType5"].create_dataset("Masses", data=pt5_masses)
+            F["PartType5"].create_dataset("Coordinates", data=pt5_coords)
+            F["PartType5"].create_dataset("Velocities", data=pt5_vels)
+            F["PartType5"].create_dataset("ParticleIDs", data=id_offset + np.arange(N_stars))
+            F["PartType5"].create_dataset("BH_Mass", data=pt5_masses)
+            F["PartType5"].create_dataset("BH_Mass_AlphaDisk", data=np.zeros(N_stars))
+            F["PartType5"].create_dataset("BH_Mdot", data=np.zeros(N_stars))
+            F["PartType5"].create_dataset("BH_Specific_AngMom", data=np.zeros(N_stars))
+            F["PartType5"].create_dataset("SinkRadius", data=np.full(N_stars, softening))
+            F["PartType5"].create_dataset("StellarFormationTime", data=-pt5_ages)
+            F["PartType5"].create_dataset("ProtoStellarAge", data=pt5_ages)
+            F["PartType5"].create_dataset(
+                "ProtoStellarStage", data=np.full(N_stars, star_stage, dtype=np.int32), dtype=np.int32
+            )
+            F["PartType5"].create_dataset("ProtoStellarRadius_inSolar", data=R_ZAMS)
+            F["PartType5"].create_dataset("StarLuminosity_Solar", data=np.zeros(N_stars))
+            F["PartType5"].create_dataset("Mass_D", data=np.zeros(N_stars))
+
+        if magnetic_field > 0.0:
+            F["PartType0"].create_dataset("MagneticField", data=B)
+        F.close()
+
+    if makebox:
+        box_filename = filename.replace(".hdf5", "_BOX.hdf5")
+        N_box = N_gas
+        _cbrt = round(N_box ** (1 / 3))
+        if _cbrt ** 3 == N_box and (_cbrt & (_cbrt - 1)) == 0:  # power of 8
+            box_coords = _get_box_glass(N_box, os.path.expanduser("~") + "/.makecloud_glass") * box_side
+        else:
+            box_coords = np.random.rand(N_box, 3) * box_side
+        box_mgas = np.repeat(dm, N_box)
+        box_u = np.ones(N_box) * u[0]
+        if star_list is not None:
+            sl = np.atleast_2d(np.loadtxt(star_list))
+            pt5_masses = sl[:, 0]
+            pt5_ages = sl[:, 1]
+            pt5_coords = sl[:, 2:5]
+            pt5_vels = sl[:, 5:8] if sl.shape[1] >= 8 else np.zeros((len(sl), 3))
+            N_stars = len(pt5_masses)
+        elif M_star > 0:
             pt5_masses = np.array([M_star])
             pt5_ages = np.array([star_age])
             pt5_coords = np.array([x_star])
             pt5_vels = np.array([v_star])
-        R_ZAMS = np.where(pt5_masses > 1.0, pt5_masses**0.57, pt5_masses**0.8)
-        id_offset = F["PartType0/ParticleIDs"][:].max() + 1
-        F.create_group("PartType5")
-        F["PartType5"].create_dataset("Masses", data=pt5_masses)
-        F["PartType5"].create_dataset("Coordinates", data=pt5_coords)
-        F["PartType5"].create_dataset("Velocities", data=pt5_vels)
-        F["PartType5"].create_dataset("ParticleIDs", data=id_offset + np.arange(N_stars))
-        F["PartType5"].create_dataset("BH_Mass", data=pt5_masses)
-        F["PartType5"].create_dataset("BH_Mass_AlphaDisk", data=np.zeros(N_stars))
-        F["PartType5"].create_dataset("BH_Mdot", data=np.zeros(N_stars))
-        F["PartType5"].create_dataset("BH_Specific_AngMom", data=np.zeros(N_stars))
-        F["PartType5"].create_dataset("SinkRadius", data=np.full(N_stars, softening))
-        F["PartType5"].create_dataset("StellarFormationTime", data=-pt5_ages)
-        F["PartType5"].create_dataset("ProtoStellarAge", data=pt5_ages)
-        F["PartType5"].create_dataset(
-            "ProtoStellarStage", data=np.full(N_stars, star_stage, dtype=np.int32), dtype=np.int32
-        )
-        F["PartType5"].create_dataset("ProtoStellarRadius_inSolar", data=R_ZAMS)
-        F["PartType5"].create_dataset("StarLuminosity_Solar", data=np.zeros(N_stars))
-        F["PartType5"].create_dataset("Mass_D", data=np.zeros(N_stars))
-
-    if magnetic_field > 0.0:
-        F["PartType0"].create_dataset("MagneticField", data=B)
-    F.close()
-
-    if makebox:
-        box_filename = filename.replace(".hdf5", "_BOX.hdf5")
+            N_stars = 1
+        else:
+            N_stars = 0
         F = h5py.File(box_filename, "w")
         F.create_group("PartType0")
         F.create_group("Header")
-        F["Header"].attrs["NumPart_ThisFile"] = [len(mgas), 0, 0, 0, 0, 0]
-        F["Header"].attrs["NumPart_Total"] = [len(mgas), 0, 0, 0, 0, 0]
-        F["Header"].attrs["MassTable"] = [M_gas / len(mgas), 0, 0, 0, 0, 0]
+        F["Header"].attrs["NumPart_ThisFile"] = [N_box, 0, 0, 0, 0, N_stars]
+        F["Header"].attrs["NumPart_Total"] = [N_box, 0, 0, 0, 0, N_stars]
+        F["Header"].attrs["MassTable"] = [M_gas / N_box, 0, 0, 0, 0, 0]
         F["Header"].attrs["BoxSize"] = box_side
         F["Header"].attrs["Time"] = 0.0
-        F["PartType0"].create_dataset("Masses", data=mgas)
-        F["PartType0"].create_dataset(
-            "Coordinates", data=np.random.rand(len(mgas), 3) * F["Header"].attrs["BoxSize"]
-        )
-        F["PartType0"].create_dataset("Velocities", data=np.zeros((len(mgas), 3)))
-        F["PartType0"].create_dataset("ParticleIDs", data=1 + np.arange(len(mgas)))
-        F["PartType0"].create_dataset("InternalEnergy", data=u)
+        F["PartType0"].create_dataset("Masses", data=box_mgas)
+        F["PartType0"].create_dataset("Coordinates", data=box_coords)
+        F["PartType0"].create_dataset("Velocities", data=np.zeros((N_box, 3)))
+        F["PartType0"].create_dataset("ParticleIDs", data=1 + np.arange(N_box))
+        F["PartType0"].create_dataset("InternalEnergy", data=box_u)
+        if N_stars > 0:
+            R_ZAMS = np.where(pt5_masses > 1.0, pt5_masses**0.57, pt5_masses**0.8)
+            F.create_group("PartType5")
+            F["PartType5"].create_dataset("Masses", data=pt5_masses)
+            F["PartType5"].create_dataset("Coordinates", data=pt5_coords)
+            F["PartType5"].create_dataset("Velocities", data=pt5_vels)
+            F["PartType5"].create_dataset("ParticleIDs", data=1 + N_box + np.arange(N_stars))
+            F["PartType5"].create_dataset("BH_Mass", data=pt5_masses)
+            F["PartType5"].create_dataset("BH_Mass_AlphaDisk", data=np.zeros(N_stars))
+            F["PartType5"].create_dataset("BH_Mdot", data=np.zeros(N_stars))
+            F["PartType5"].create_dataset("BH_Specific_AngMom", data=np.zeros(N_stars))
+            F["PartType5"].create_dataset("SinkRadius", data=np.full(N_stars, softening))
+            F["PartType5"].create_dataset("StellarFormationTime", data=-pt5_ages)
+            F["PartType5"].create_dataset("ProtoStellarAge", data=pt5_ages)
+            F["PartType5"].create_dataset(
+                "ProtoStellarStage", data=np.full(N_stars, star_stage, dtype=np.int32), dtype=np.int32
+            )
+            F["PartType5"].create_dataset("ProtoStellarRadius_inSolar", data=R_ZAMS)
+            F["PartType5"].create_dataset("StarLuminosity_Solar", data=np.zeros(N_stars))
+            F["PartType5"].create_dataset("Mass_D", data=np.zeros(N_stars))
         if magnetic_field > 0.0:
-            F["PartType0"].create_dataset("MagneticField", data=B[: len(mgas)])
+            F["PartType0"].create_dataset("MagneticField", data=B[:N_box])
         F.close()
 
     if makecylinder:
@@ -642,4 +712,4 @@ def MakeCloud(
             F["PartType0"].create_dataset("MagneticField", data=B_cyl)
         F.close()
 
-    return filename
+    return box_filename if makebox else filename
