@@ -18,7 +18,7 @@ def _get_box_glass(N, cache_dir):
 
     if not os.path.isdir(cache_dir):
         os.makedirs(cache_dir)
-    cbrt = round(N ** (1 / 3))
+    cbrt = min(round(N ** (1 / 3)), 256)
     path = os.path.join(cache_dir, "glass_%d.hdf5" % cbrt)
     if not os.path.exists(path):
         print("Downloading glass_%d.hdf5..." % cbrt)
