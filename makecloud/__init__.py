@@ -336,6 +336,7 @@ def MakeCloud(
         "UNIT_B": B_unit_gauss,
         "ZINIT": metallicity,
         "ISRF": ISRF,
+        "TURB_SEED": str(seed),   # a string: numbers are written as %.2e, which atoi would truncate
     }
 
     if not makebox:

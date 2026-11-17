@@ -27,13 +27,10 @@ NumFilesWrittenInParallel   1  % must be < N_processors & power of 2
 %---- Output frequency 
 TimeOfFirstSnapshot     0.  % time (code units) of first snapshot
 TimeBetSnapshot         DTSNAP  % time between (if OutputListOn=0), code units
-TimeBetStatistics       DTSNAP % time between additional statistics (e.g. energy)
 
 %---- CPU run-time and checkpointing time-limits
 TimeLimitCPU            172800  % in seconds
 CpuTimeBetRestartFile   7200  	% in seconds 
-ResubmitOn              0 
-ResubmitCommand         my-scriptfile 
 
 %---- Desired simulation beginning and end times (in code units) for run
 TimeBegin   0.0    % Beginning of the simulation
@@ -58,6 +55,7 @@ Omega0                  0.    % =0 for non-cosmological
 OmegaLambda             0.    % =0 for non-cosmological
 OmegaBaryon             0.  % =0 for non-cosmological
 HubbleParam             1.     % little 'h'; =1 for non-cosmological runs
+OmegaRadiation          0.     % =0 for non-cosmological
 
 
 %----- Memory allocation
@@ -116,12 +114,6 @@ AGS_DesNumNgb           32  % neighbor number for calculating adaptive gravsoft
 %------------------ Additional Fluid Physics ----------------
 %------------------------------------------------------------
 
-%---- Magneto-Hydrodynamics Parameters (MAGNETIC on)
-%----- Initial B-Field Strengths (if MHD_B_SET_IN_PARAMS on, otherwise read from IC file)
-BiniX   1.0e-8    % initial B_x, in code units
-BiniY   1.0e-8    % initial B_y, in code units
-BiniZ   1.0e-8    % initial B_z, in code units
-
 %---- Thermal Conduction (CONDUCTION on)
 %----- set coefficient kappa [code units] or, if CONDUCTION_SPITZER on, multiplies value
 ConductionCoeff  1.0  % set/multiply conduction coefficient
@@ -134,14 +126,6 @@ BulkViscosityCoeff      1.0     % set/multiply bulk viscosity coefficient
 %---- Turbulent Diffusion Master Switch (TURB_DIFFUSION on)
 TurbDiffusionCoefficient 1.0    % Normalizes diffusion rates relative to Smagorinsky-Lilly theory [best calibration] (~0.5-2)
 
-%---- Cosmic Ray + Gas Fluids (COSMIC_RAYS on)
-CosmicRayDiffusionCoeff     1.0     % multiplies anisotropic diffusion/streaming coefficients
-
-%---- Dust-Gas Mixtures (GRAIN_FLUID on)
-Grain_Internal_Density      1.0     % internal/material density of grains in g/cm^3
-Grain_Size_Min              1.e-6   % minimum grain size in cm
-Grain_Size_Max              1.e-4   % maximum grain size in cm
-Grain_Size_Spectrum_Powerlaw  0.5   % power-law distribution of grain sizes (dm/dlnr~r^x)
 
 
 %-------------------------------------------------------------------------
@@ -172,20 +156,15 @@ PhotonMomentum_fOPT         0.0    % incident SED f(L) in optical/near-IR
 %--- gas return/recycling
 GasReturnFraction           1.0     % fraction of gas mass returned (relative to ssp)
 GasReturnEnergy             1.0     % fraction of returned gas energy+momentum (relative to ssp)
-%--- cosmic rays (COSMIC_RAYS)
-CosmicRay_SNeFraction       0.1     % fraction of SNe ejecta kinetic energy into cosmic rays (~10%)
 
 InterstellarRadiationFieldStrength  ISRF % interstellar radiation field intensity relative to values measured in Solar neighborhood
+InitRadiationTemp           20.     % initial radiation temperature (K) of the IR band
+Redshift_RT_Background      0.      % redshift of the radiation background (CMB temperature)
 
 %-------------- Sink particle accretion & formation (SINK_PARTICLES on)
 %--- formation/seeding
 SeedSinkMass                 BH_SEED_MASS    % initial mass (on-the-fly or single galaxy)
 SeedReservoirMass            0.0        % initial mass in the alpha disk (SINK_ALPHADISK_ACCRETION)
-SeedSinkMinRedshift          2.0        % minimum redshift where new sink particles are seeded (lower-z ceases seeding)
-SeedSinkMassSigma            0.5        % lognormal standard deviation (in dex) in initial sink seed masses
-%----- (specific options for on-the-fly friends-of-friends based sink seeding: FOF on)
-MinFoFMassForNewSeed         10.	    % minimum mass of FOF group (stars or DM) to get seed, in code units
-TimeBetOnTheFlyFoF           1.01       % time (in code units, e.g. scale-factor) between on-the-fly FOF searches
 %--- accretion
 SinkAccretionFactor          1.0	    % multiplier for mdot (relative to model)
 SinkEddingtonFactor          1e100	    % fraction of Eddington to cap (can be >1)
@@ -194,20 +173,16 @@ SinkMaxAccretionRadius       BOXSIZE	    % max radius for sink neighbor search/a
 SinkRadiativeEfficiency      5e-7        % radiative efficiency (for accretion and feedback)
 %--- feedback
 SinkFeedbackFactor           1.0	    % generic feedback strength multiplier
-Sink_FluxMomentumFactor      0.0	    % multiply radiation pressure (SINK_PHOTONMOMENTUM), set to zero to avoid launching gas from rad. pressure
 Sink_accreted_fraction       0.7        % fraction of gas swallowed by sink (SINK_WIND_KICK or SINK_WIND_SPAWN)
 Sink_outflow_velocity        100.	    % velocity (km/s) of outflow (SINK_WIND_KICK or SINK_WIND_SPAWN)
 Sink_outflow_temperature     1.0e3      % internal temperature (K) of spawned wind cells (SINK_WIND_SPAWN)
 Sink_outflow_particlemass    JET_PART_MASS     % mass of spawned wind cells in code units (SINK_WIND_SPAWN)
 Cell_Spawn_Mass_ratio_MS     MS_WIND_PART_MASS     % mass of spawned MS stellar wind cells; if 0 uses Sink_outflow_particlemass (SINGLE_STAR_FB_WINDS)
+Sink_outflow_jetlaunchvelscaling  0.3   % jet launch speed as a fraction of the escape speed (SINGLE_STAR_FB_JETS)
+SinkMergerMaxMass            0.         % most massive sink a merger can absorb (code units); 0 = 10x its Sink_Formation_Mass
+SinkMergerMaxRadiusFactor    1.         % merger radius in units of the sink gravity-kernel radius
 
 
-%-------------------------------------------------------------------------
-%------------------ Grackle cooling module -----------------
-%-------------------------------------------------------------------------
-
-%-------------- Grackle UVB file (COOL_GRACKLE on)
-GrackleDataFile		     CloudyData_UVB=HM2012.h5
 
 
 
@@ -222,20 +197,18 @@ TurbDrive_MaxWavelength             TURB_MAXLAMBDA
 TurbDrive_SolenoidalFraction        1  
 TurbDrive_CoherenceTime             TURB_COHERENCE_TIME
 TurbDrive_DrivingSpectrum           1
-TurbDrive_RandomNumberSeed          42
+TurbDrive_RandomNumberSeed          TURB_SEED   % follows --turb_seed, so each realization is driven independently
 TurbDrive_TimeBetweenTurbUpdates    DTSNAP
-TurbDrive_TimeBetTurbSpectrum       DTSNAP
+%--- regulated driving to a target v_rms (TURB_DRIVING_TARGET_VRMS_REGION); gains in units of TurbDrive_MaxWavelength/TurbDrive_ApproxRMSVturb
+TurbDrive_PID_Kp                    1.     % proportional gain (the code default 2 overshoots and alternates update to update)
+TurbDrive_PID_Ti                    0.25   % integral time; <=0 disables the integral term
+TurbDrive_PID_Td                    0.     % derivative time; 0 = no derivative term
 
 
-%-------------------------------------------------------------------------------------------------
-%------------------ Non-Standard Dark Matter, Dark Energy, Gravity, or Expansion -----------------
-%-------------------------------------------------------------------------------------------------
 
-%-------------- Parameters for non-standard or time-dependent Gravity/Dark Energy/Expansion (GR_TABULATED_COSMOLOGY on)
-DarkEnergyConstantW       -1        % time-independent DE parameter w, used only if no table
-TabulatedCosmologyFile    CosmoTbl  % table with cosmological parameters
-
-%--- Developer-Mode Parameters (usually hard-coded, but set manually if DEVELOPER_MODE is on) --------
+%--- Developer-Mode Parameters: read ONLY when compiled with DEVELOPER_MODE. Otherwise GIZMO ignores
+%--- them (with a warning) and uses its built-in values; they are kept because DEVELOPER_MODE has no defaults.
+TimeBetStatistics        DTSNAP % time between additional statistics (e.g. energy)
 ErrTolTheta                  0.5    % 0.7=standard
 ErrTolForceAcc               0.0025 % 0.0025=standard
 ErrTolIntAccuracy        0.01  % <0.02
