@@ -58,6 +58,15 @@ def get_glass_coords(N_gas, glass_path, center_on_cell=False):
     return x[order]
 
 
+def _component_seeds(seed):
+    """Seeds of the noise fields behind the x, y and z velocity components.
+
+    seed + i made seeds s and s+1 share two of their three fields. 42 + 3(s - 42) + i gives every seed
+    its own disjoint triple and keeps seed 42 on its original 42, 43, 44.
+    """
+    return [(42 + 3 * (int(seed) - 42) + i) % 2**32 for i in range(3)]
+
+
 def TurbField(res=256, minmode=2, maxmode=64, slope=2.0, sol_weight=1.0, seed=42):
     freqs = fftpack.fftfreq(res)
     freq3d = np.array(np.meshgrid(freqs, freqs, freqs, indexing="ij"))
@@ -66,8 +75,8 @@ def TurbField(res=256, minmode=2, maxmode=64, slope=2.0, sol_weight=1.0, seed=42
     intkSqr = np.sum(np.abs(intfreq) ** 2, axis=0)
     VK = []
 
-    for i in range(3):
-        np.random.seed(seed + i)
+    for i, s in enumerate(_component_seeds(seed)):
+        np.random.seed(s)
         rand_phase = fftpack.fftn(np.random.normal(size=kSqr.shape))
         vk = rand_phase * (float(minmode) / res) ** 2 / (np.power(kSqr, slope / 2.0) + 1e-300)
         vk[intkSqr == 0] = 0.0
@@ -414,7 +423,8 @@ def MakeCloud(
 
     if not os.path.exists(turb_path):
         os.makedirs(turb_path)
-    fname = turb_path + "/vturb%d_beta%g_sol%g_seed%d.npy" % (minmode, turb_slope, turb_sol, seed)
+    # _v2: fields cached before the component-seed fix are stale for every seed but 42
+    fname = turb_path + "/vturb%d_beta%g_sol%g_seed%d_v2.npy" % (minmode, turb_slope, turb_sol, seed)
     if not os.path.isfile(fname):
         vt = TurbField(minmode=minmode, slope=turb_slope, sol_weight=turb_sol, seed=seed)
         nmin, nmax = vt.shape[-1] // 4, 3 * vt.shape[-1] // 4
